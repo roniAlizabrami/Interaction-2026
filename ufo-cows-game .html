@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UFO Cow Farm</title>
+<style>
+  :root {
+    --ink: #13261a;
+    --panel: rgba(10, 22, 16, 0.38);
+    --accent: #d61f2a;
+    --beam: #c9f23a;
+  }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1838; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff; }
+  #scene { position: fixed; inset: 0; display: block; }
+
+  .hud { position: fixed; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; pointer-events: none; }
+  .card { pointer-events: auto; background: var(--panel); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); border-radius: 12px; padding: 7px 11px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+  .title { font-weight: 800; font-size: 15px; margin: 0; }
+  .sub { font-size: 12px; opacity: 0.85; margin: 0; }
+
+  button { font: inherit; font-size: 12px; font-weight: 700; border: 0; border-radius: 8px; padding: 5px 9px; cursor: pointer; background: rgba(255,255,255,0.9); color: var(--ink); text-shadow: none; }
+  button.secondary { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.7); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  label.row { font-size: 12px; cursor: pointer; }
+
+  .status { font-size: 12px; display: flex; align-items: center; gap: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #e44; }
+  .dot.on { background: #4d4; }
+  .warn { display: none; margin-top: 6px; font-size: 12px; color: #ffb3b3; max-width: 300px; }
+  .warn.show { display: block; }
+
+  .types { display: flex; gap: 10px; font-size: 15px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .types .done { color: #9dff7a; }
+  .small { font-size: 12px; margin-top: 3px; opacity: 0.9; }
+
+  .pop { position: fixed; left: 50%; top: 34%; transform: translate(-50%, -50%); font-size: 46px; font-weight: 900; color: #fff; text-align: center; white-space: nowrap; text-shadow: 0 3px 0 var(--accent), 0 6px 16px rgba(0,0,0,0.35); pointer-events: none; opacity: 0; transition: opacity 0.15s, transform 0.6s; }
+  .pop.show { opacity: 1; transform: translate(-50%, -80%); }
+  .toast { position: fixed; left: 50%; bottom: 60px; transform: translateX(-50%); background: rgba(10, 22, 16, 0.55); color: #fff; font-weight: 700; font-size: 14px; padding: 8px 14px; border-radius: 12px; pointer-events: none; opacity: 0; transition: opacity 0.3s; text-align: center; max-width: calc(100% - 32px); }
+  .toast.show { opacity: 1; }
+
+  .help { position: fixed; bottom: 12px; left: 12px; right: 12px; display: flex; justify-content: center; pointer-events: none; transition: opacity 1s; }
+  .help.hide { opacity: 0; }
+  .help .card { font-size: 12px; text-align: center; background: rgba(10, 22, 16, 0.3); }
+  kbd { background: rgba(255,255,255,0.18); border-radius: 4px; padding: 0 5px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4); font-family: inherit; font-weight: 700; }
+
+  .win { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 16px; background: rgba(5, 10, 25, 0.35); }
+  .win.show { display: flex; }
+  .win .card { text-align: center; padding: 20px 26px; background: rgba(10, 22, 16, 0.7); }
+  .win .title { font-size: 28px; margin-bottom: 6px; }
+  .win button { font-size: 15px; padding: 8px 16px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div class="hud">
+  <div class="card">
+    <p class="title">🛸 UFO Cow Farm</p>
+    <div class="row" style="margin-top:5px">
+      <button id="connectBtn">Connect micro:bit</button>
+      <button id="disconnectBtn" class="secondary" disabled>Disconnect</button>
+      <span class="status"><span class="dot" id="dot"></span><span id="statusText">Not connected</span></span>
+    </div>
+    <div class="row" style="margin-top:5px">
+      <button id="calibrateBtn" class="secondary" title="Hold the micro:bit the way you want 'no tilt' to be, then press">Set level</button>
+      <label class="row"><input type="checkbox" id="flipY"> Flip forward/back</label>
+    </div>
+    <div class="warn" id="warn"></div>
+  </div>
+
+  <div class="card">
+    <div class="sub">Mission: take 2 of each</div>
+    <div class="types">
+      <span id="mCow" title="White cows">🐄 0/2</span>
+      <span id="mBull" title="Bulls">🐂 0/2</span>
+      <span id="mCalf" title="Calves">🍼 0/2</span>
+    </div>
+    <div class="row" style="margin-top:3px">
+      <span class="small" id="panicText" style="margin:0">Herd: calm</span>
+      <button id="resetBtn" class="secondary">New herd</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <button id="dayBtn" class="secondary" title="Button A on the micro:bit, or N">🌙 Night</button>
+    <div class="small">Button A: day / night</div>
+  </div>
+</div>
+
+<div class="pop" id="pop">MOO!</div>
+<div class="toast" id="toast"></div>
+
+<div class="help" id="help">
+  <div class="card">Tilt to fly, hold <kbd>B</kbd> for the beam, press <kbd>A</kbd> for day/night.<br>No micro:bit? <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to fly, <kbd>Space</kbd> beam, <kbd>N</kbd> day/night, <kbd>R</kbd> new herd.</div>
+</div>
+
+<div class="win" id="win">
+  <div class="card">
+    <p class="title">🛸 Mission complete!</p>
+    <p class="sub" id="winText"></p>
+    <button id="playAgainBtn">Play again</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+const BAUD_RATE = 115200;    // must match the micro:bit program
+const PLANET_R = 40;         // radius of the farm planet
+const UFO_H = 10;            // how high the UFO flies above the grass
+const MISSION = 2;           // take this many of each kind to win
+const COW_COUNT = 24;        // white cows
+const BULL_COUNT = 10;       // bulls with horns
+const CALF_COUNT = 6;        // only a few calves
+const PANIC_BARN = 5;        // after this many abductions cows hide in the barn
+
+const UFO_SPEED = 8;         // units per second
+const UFO_TURN = 1.8;        // radians per second at full tilt
+const TILT_FULL = 550;       // micro:bit reading that counts as full tilt (about 33 degrees)
+const TILT_DEADZONE = 90;    // small wobbles are ignored
+
+// Beam strength: day -> night
+const BEAM_R_DAY = 3.0, BEAM_R_NIGHT = 4.3;   // radius on the ground
+const LIFT_DAY = 2.2, LIFT_NIGHT = 3.6;       // how fast cows rise
+const CALF_HELPERS_MAX = 4;  // by day a calf can be taken if 4 cows or fewer pull on it
+const RESCUE_RADIUS = 18;    // cows this close to a calf come to help
+
+const V3 = THREE.Vector3;
+const lerp = THREE.MathUtils.lerp;
+
+// ---------------------------------------------------------------------------
+// Scene
+// ---------------------------------------------------------------------------
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const DAY_FOG = new THREE.Color(0xbfe3ff), NIGHT_FOG = new THREE.Color(0x0e1838);
+scene.fog = new THREE.Fog(DAY_FOG.clone(), 35, 95);
+
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 230);
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x7fa86a, 0.65);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff4dc, 1.0);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 110 });
+scene.add(sun);
+scene.add(sun.target);
+const moonLight = new THREE.DirectionalLight(0x8fa8ff, 0);
+scene.add(moonLight);
+scene.add(moonLight.target);
+
+// Sky dome around the camera: blue by day, dark with stars at night.
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: {
+    uUp: { value: new V3(0, 1, 0) },
+    uNight: { value: 0 },
+    uTime: { value: 0 },
+    uZenD: { value: new THREE.Color(0x3d8fe0) }, uHorD: { value: new THREE.Color(0xc4e6ff) },
+    uZenN: { value: new THREE.Color(0x01030c) }, uHorN: { value: new THREE.Color(0x0e1838) },
+  },
+  vertexShader: `
+    varying vec3 vDir;
+    void main() {
+      vDir = (modelMatrix * vec4(position, 1.0)).xyz - cameraPosition;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    uniform vec3 uUp, uZenD, uHorD, uZenN, uHorN;
+    uniform float uNight, uTime;
+    varying vec3 vDir;
+    float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    void main() {
+      vec3 d = normalize(vDir);
+      float e = dot(d, uUp);
+      float k = smoothstep(-0.15, 0.7, e);
+      vec3 col = mix(mix(uHorD, uZenD, k), mix(uHorN, uZenN, k), uNight);
+      float s = hash(floor(d * 260.0));
+      float star = step(0.996, s) * smoothstep(0.0, 0.3, e);
+      col += vec3(star) * uNight * (0.65 + 0.35 * sin(uTime * 3.0 + s * 60.0));
+      gl_FragColor = vec4(col, 1.0);
+    }`,
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(160, 32, 16), skyMat);
+sky.frustumCulled = false;
+sky.renderOrder = -1;
+scene.add(sky);
+const sunDisk = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff3b0, fog: false, transparent: true }));
+const moonDisk = new THREE.Mesh(new THREE.SphereGeometry(4.5, 16, 12), new THREE.MeshBasicMaterial({ color: 0xf4f1dc, fog: false, transparent: true, opacity: 0 }));
+scene.add(sunDisk, moonDisk);
+
+// The planet: green grass with lighter and darker patches and a few hay fields
+const groundGeo = new THREE.SphereGeometry(PLANET_R, 128, 96);
+{
+  const pos = groundGeo.attributes.position, colors = [], col = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i) / PLANET_R, y = pos.getY(i) / PLANET_R, z = pos.getZ(i) / PLANET_R;
+    const n = Math.sin(x * 7 + 1.3) * Math.sin(y * 6.2) + Math.sin(z * 9 + x * 3) * 0.6 + Math.sin((x + y) * 15) * 0.25;
+    const field = Math.sin(x * 4.1 + z * 2.3) * Math.sin(y * 3.7 - z * 1.9);
+    if (field > 0.55) col.setHSL(0.15, 0.55, 0.58 + Math.sin((x - z) * 60) * 0.03);   // hay field stripes
+    else col.setHSL(0.27 + n * 0.02, 0.55, 0.40 + n * 0.05);
+    colors.push(col.r, col.g, col.b);
+  }
+  groundGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+}
+const planet = new THREE.Mesh(groundGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }));
+planet.receiveShadow = true;
+scene.add(planet);
+
+// ---------------------------------------------------------------------------
+// Helpers for things that live on the planet surface.
+// p = unit vector from the planet centre (the local "up"), f = forward direction along the surface.
+// ---------------------------------------------------------------------------
+const _x = new V3(), _m = new THREE.Matrix4(), _axis = new V3(), _tmp = new V3(), _c = new V3(), _dir = new V3();
+
+function placeOnPlanet(obj, p, f, lift = 0) {
+  obj.position.copy(p).multiplyScalar(PLANET_R + lift);
+  _x.crossVectors(p, f);              // local x points to the left of forward
+  _m.makeBasis(_x, p, f);
+  obj.quaternion.setFromRotationMatrix(_m);
+}
+
+// Move along the surface: rotate both vectors around the axis to the side.
+function moveOnPlanet(p, f, dist) {
+  _axis.crossVectors(p, f).normalize();
+  const angle = dist / PLANET_R;
+  p.applyAxisAngle(_axis, angle).normalize();
+  f.applyAxisAngle(_axis, angle);
+  f.addScaledVector(p, -f.dot(p)).normalize();
+}
+
+// A point fwd units ahead and side units to the left of p.
+function offsetPoint(p, f, fwd, side, out = new V3()) {
+  out.copy(p);
+  const f2 = _tmp.copy(f);
+  if (fwd) moveOnPlanet(out, f2, fwd);
+  if (side) { const s = new V3().crossVectors(out, f2).normalize(); moveOnPlanet(out, s, side); }
+  return out;
+}
+
+function groundDist(a, b) { return a.angleTo(b) * PLANET_R; }
+
+// Direction along the surface at p that points toward target (unit vector, or zero).
+function tangentToward(p, target, out) {
+  out.copy(target).addScaledVector(p, -target.dot(p));
+  return out.lengthSq() < 1e-10 ? out.set(0, 0, 0) : out.normalize();
+}
+
+// Turn heading f (around up p) toward dir by at most maxAngle.
+function turnToward(f, p, dir, maxAngle) {
+  if (dir.lengthSq() < 1e-8) return;
+  const a = Math.atan2(_c.crossVectors(f, dir).dot(p), f.dot(dir));
+  f.applyAxisAngle(p, Math.max(-maxAngle, Math.min(maxAngle, a)));
+}
+
+function retangent(f, p) {
+  f.addScaledVector(p, -f.dot(p));
+  if (f.lengthSq() < 1e-8) f.copy(randomTangent(p)); else f.normalize();
+}
+
+function randomUnit() {
+  const v = new V3(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1);
+  return v.lengthSq() < 0.01 ? randomUnit() : v.normalize();
+}
+function randomTangent(p) {
+  const t = randomUnit();
+  t.addScaledVector(p, -t.dot(p));
+  return t.lengthSq() < 0.01 ? randomTangent(p) : t.normalize();
+}
+// A random point within maxDist (along the ground) of centre
+function randomNear(centre, minDist, maxDist) {
+  const f = randomTangent(centre);
+  const p = centre.clone();
+  moveOnPlanet(p, f, minDist + Math.random() * (maxDist - minDist));
+  return p;
+}
+
+function std(color, roughness = 0.8, metalness = 0) {
+  return new THREE.MeshStandardMaterial({ color, roughness, metalness });
+}
+const SPH = new THREE.SphereGeometry(1, 16, 12);
+const BOX = new THREE.BoxGeometry(1, 1, 1);
+function part(geo, mat, parent, x, y, z, sx, sy, sz, shadow = true) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  m.scale.set(sx, sy, sz);
+  m.castShadow = shadow;
+  parent.add(m);
+  return m;
+}
+
+// ---------------------------------------------------------------------------
+// The farm: barn, silo, trees, hay bales, fences, ponds and flowers
+// ---------------------------------------------------------------------------
+const START_P = new V3(0, 1, 0);
+const START_F = new V3(0, 0, -1);
+const barnP = offsetPoint(START_P, START_F, 15, 4);
+const barnF = tangentToward(barnP, START_P, new V3());   // the door faces the start point
+const barnDoor = offsetPoint(barnP, barnF, 3.1, 0);
+const barnApproach = offsetPoint(barnP, barnF, 6, 0);
+const decorations = [];   // { p, radius } things cows walk around
+
+const windowMat = new THREE.MeshStandardMaterial({ color: 0x3a3020, emissive: 0xffc94a, emissiveIntensity: 0, roughness: 0.6 });
+
+function makeBarn() {
+  const root = new THREE.Group();
+  const g = new THREE.Group();      // wobbles when the beam tries to lift it
+  root.add(g);
+  const red = std(0xb3262b), white = std(0xf5f0e6), roof = std(0x4d3630), dark = std(0x26170f);
+  const walls = part(BOX, red, g, 0, 1.5, 0, 4.6, 3.0, 5.6);
+  walls.receiveShadow = true;
+  // gable triangles front and back
+  const tri = new THREE.Shape();
+  tri.moveTo(-2.3, 0); tri.lineTo(2.3, 0); tri.lineTo(0, 1.7); tri.closePath();
+  const gable = new THREE.Mesh(new THREE.ExtrudeGeometry(tri, { depth: 5.6, bevelEnabled: false }), red);
+  gable.position.set(0, 3.0, -2.8);
+  gable.castShadow = true;
+  g.add(gable);
+  // roof planks
+  for (const s of [-1, 1]) {
+    const r = part(BOX, roof, g, s * 1.15, 3.0 + 0.85 + 0.12, 0, 3.25, 0.2, 6.1);
+    r.rotation.z = -s * 0.636;
+  }
+  // big door with the white X
+  part(BOX, dark, g, 0, 1.15, 2.81, 2.0, 2.3, 0.05, false);
+  for (const [x, y, w, h] of [[0, 2.33, 2.2, 0.14], [-1.03, 1.15, 0.14, 2.36], [1.03, 1.15, 0.14, 2.36]]) part(BOX, white, g, x, y, 2.84, w, h, 0.06, false);
+  for (const s of [-1, 1]) {
+    const bar = part(BOX, white, g, 0, 1.15, 2.86, 0.12, 2.9, 0.05, false);
+    bar.rotation.z = s * Math.atan2(2.0, 2.3);
+  }
+  // corner trims
+  for (const x of [-2.31, 2.31]) for (const z of [-2.81, 2.81]) part(BOX, white, g, x, 1.5, z, 0.14, 3.0, 0.14, false);
+  // windows that glow at night
+  part(BOX, windowMat, g, 0, 3.65, 2.82, 0.8, 0.8, 0.06, false);
+  part(BOX, white, g, 0, 3.65, 2.81, 1.0, 1.0, 0.04, false);
+  for (const sx of [-1, 1]) for (const z of [-1.4, 1.4]) part(BOX, windowMat, g, sx * 2.31, 1.9, z, 0.06, 0.8, 0.9, false);
+  return { root, wobble: g };
+}
+const barn = makeBarn();
+placeOnPlanet(barn.root, barnP, barnF, 0);
+scene.add(barn.root);
+decorations.push({ p: barnP, radius: 3.0, barn: true });
+
+// silo next to the barn
+{
+  const sp = offsetPoint(barnP, barnF, -1, -4.3);
+  const silo = new THREE.Group();
+  const metal = std(0xc6cbd1, 0.5, 0.3);
+  const body = part(new THREE.CylinderGeometry(1.15, 1.15, 6, 20), metal, silo, 0, 3, 0, 1, 1, 1);
+  body.receiveShadow = true;
+  part(new THREE.SphereGeometry(1.15, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), std(0x8e2a2a), silo, 0, 6, 0, 1, 1, 1);
+  for (const y of [1.5, 3, 4.5]) part(new THREE.TorusGeometry(1.16, 0.04, 6, 24), std(0x8a9096, 0.5, 0.4), silo, 0, y, 0, 1, 1, 1).rotation.x = Math.PI / 2;
+  placeOnPlanet(silo, sp, barnF, 0);
+  scene.add(silo);
+  decorations.push({ p: sp, radius: 1.4 });
+}
+
+function farFromFarm(p, d) {
+  if (groundDist(p, barnP) < d) return false;
+  for (const dec of decorations) if (groundDist(p, dec.p) < dec.radius + 1.5) return false;
+  return true;
+}
+
+// trees
+const leafMats = [0x3f8f3a, 0x2f7a35, 0x56a03d].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, flatShading: true }));
+const trunkMat = std(0x6b4a2f, 0.9);
+const blobGeo = new THREE.IcosahedronGeometry(1, 1);
+for (let i = 0; i < 55; i++) {
+  const p = i < 12 ? randomNear(barnP, 9, 26) : randomUnit();
+  if (!farFromFarm(p, 8) || groundDist(p, START_P) < 5) continue;
+  const s = 0.8 + Math.random() * 0.7;
+  const tree = new THREE.Group();
+  part(new THREE.CylinderGeometry(0.18 * s, 0.25 * s, 1.6 * s, 6), trunkMat, tree, 0, 0.8 * s, 0, 1, 1, 1);
+  const mat = leafMats[i % 3];
+  part(blobGeo, mat, tree, 0, 2.1 * s, 0, 1.1 * s, 1.0 * s, 1.1 * s);
+  part(blobGeo, mat, tree, 0.5 * s, 1.8 * s, 0.2 * s, 0.7 * s, 0.65 * s, 0.7 * s);
+  part(blobGeo, mat, tree, -0.4 * s, 2.6 * s, -0.2 * s, 0.7 * s, 0.65 * s, 0.7 * s);
+  placeOnPlanet(tree, p, randomTangent(p), 0);
+  scene.add(tree);
+  decorations.push({ p, radius: 0.8 * s });
+}
+
+// ponds
+const pondMat = new THREE.MeshStandardMaterial({ color: 0x3f8fd0, roughness: 0.15, metalness: 0.1 });
+for (let i = 0; i < 3; i++) {
+  const p = i === 0 ? offsetPoint(barnP, barnF, 10, -10) : randomNear(barnP, 25, 45);
+  if (!farFromFarm(p, 8)) continue;
+  const r = 2 + Math.random() * 1.5;
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(r, 28), pondMat);
+  pond.rotation.x = -Math.PI / 2;
+  pond.receiveShadow = true;
+  const holder = new THREE.Group();
+  holder.add(pond);
+  holder.scale.set(1, 1, 0.7);
+  placeOnPlanet(holder, p, randomTangent(p), 0.04);
+  scene.add(holder);
+  decorations.push({ p, radius: r * 0.9 });
+}
+
+// hay bales near the barn
+const hayMat = std(0xe0bd55, 0.95);
+for (let i = 0; i < 9; i++) {
+  const p = randomNear(barnP, 5, 14);
+  if (!farFromFarm(p, 4.5)) continue;
+  const bale = new THREE.Group();
+  const m = part(new THREE.CylinderGeometry(0.55, 0.55, 1.0, 16), hayMat, bale, 0, 0.55, 0, 1, 1, 1);
+  m.rotation.z = Math.PI / 2;
+  placeOnPlanet(bale, p, randomTangent(p), 0);
+  scene.add(bale);
+  decorations.push({ p, radius: 0.7 });
+}
+
+// a few wooden fence pieces
+const fenceMat = std(0x8a6239, 0.9);
+for (let i = 0; i < 10; i++) {
+  const p = i < 6 ? offsetPoint(barnP, barnF, -6 + i * 0.1, -9 + i * 3.6) : randomNear(barnP, 15, 30);
+  if (i >= 6 && !farFromFarm(p, 6)) continue;
+  const fence = new THREE.Group();
+  for (const x of [-1.8, 0, 1.8]) part(BOX, fenceMat, fence, x, 0.55, 0, 0.14, 1.1, 0.14);
+  for (const y of [0.45, 0.85]) part(BOX, fenceMat, fence, 0, y, 0, 3.8, 0.12, 0.06);
+  placeOnPlanet(fence, p, i < 6 ? barnF : randomTangent(p), 0);
+  scene.add(fence);
+}
+
+// flowers
+{
+  const FLOWERS = 320;
+  const flowers = new THREE.InstancedMesh(new THREE.SphereGeometry(0.1, 6, 4), new THREE.MeshStandardMaterial({ roughness: 0.6 }), FLOWERS);
+  const dummy = new THREE.Object3D(), col = new THREE.Color();
+  const palette = [0xffffff, 0xffe14d, 0xff7ab8, 0xb58cff, 0xff6b4a];
+  for (let i = 0; i < FLOWERS; i++) {
+    const p = randomUnit();
+    placeOnPlanet(dummy, p, randomTangent(p), 0.08);
+    dummy.updateMatrix();
+    flowers.setMatrixAt(i, dummy.matrix);
+    flowers.setColorAt(i, col.setHex(palette[i % palette.length]));
+  }
+  scene.add(flowers);
+}
+
+// ---------------------------------------------------------------------------
+// Clouds at the height the UFO flies, so it sometimes goes through them
+// ---------------------------------------------------------------------------
+const clouds = [];
+const CLOUD_AXIS = new V3(0.3, 1, 0.2).normalize();
+const DAY_CLOUD = new THREE.Color(0xffffff), NIGHT_CLOUD = new THREE.Color(0x2a3352), _cloudCol = new THREE.Color();
+for (let i = 0; i < 26; i++) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false });
+  const puffs = 5 + Math.floor(Math.random() * 4);
+  for (let k = 0; k < puffs; k++) {
+    const s = 1.1 + Math.random() * 1.2;
+    part(SPH, mat, g, (k - puffs / 2) * 1.1 + Math.random() * 0.6, Math.random() * 0.6, (Math.random() - 0.5) * 2.2, s * 1.2, s * 0.8, s, false);
+  }
+  const p = i < 8 ? randomNear(START_P, 6, 35) : randomUnit();
+  const high = i % 3 === 0;
+  clouds.push({ g, mat, p, f: randomTangent(p), h: high ? 15 + Math.random() * 3 : 8.5 + Math.random() * 3.5, speed: 0.02 + Math.random() * 0.02 });
+  scene.add(g);
+}
+
+// ---------------------------------------------------------------------------
+// The UFO: red saucer, see-through dome with an alien silhouette,
+// spinning lower part with blinking round lights, and the tractor beam.
+// ---------------------------------------------------------------------------
+function makeAlienTexture() {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 160;
+  const g = c.getContext('2d');
+  const shape = () => {
+    g.beginPath();
+    g.ellipse(64, 66, 30, 36, 0, 0, Math.PI * 2);
+    g.moveTo(26, 160);
+    g.quadraticCurveTo(30, 112, 50, 104);
+    g.lineTo(78, 104);
+    g.quadraticCurveTo(98, 112, 102, 160);
+    g.closePath();
+  };
+  g.strokeStyle = '#7dff6a'; g.fillStyle = '#7dff6a';
+  g.lineWidth = 5; g.lineCap = 'round';
+  g.shadowColor = '#7dff6a'; g.shadowBlur = 10;
+  // antennae
+  g.beginPath(); g.moveTo(50, 36); g.lineTo(36, 10); g.moveTo(78, 36); g.lineTo(92, 10); g.stroke();
+  g.beginPath(); g.arc(36, 10, 6, 0, Math.PI * 2); g.arc(92, 10, 6, 0, Math.PI * 2); g.fill();
+  g.lineWidth = 9;
+  shape(); g.stroke();
+  g.shadowBlur = 0;
+  g.fillStyle = 'rgba(8, 26, 14, 0.92)';
+  shape(); g.fill();
+  return new THREE.CanvasTexture(c);
+}
+
+const LIGHT_COLORS = [0xff3b3b, 0xffd23b, 0x3bff6e, 0x3bd6ff, 0xb33bff, 0xff8a1f];
+function makeUfo() {
+  const frame = new THREE.Group();     // sits on the ground under the UFO
+  const ship = new THREE.Group();      // the UFO itself, UFO_H above the ground
+  ship.position.y = UFO_H;
+  frame.add(ship);
+  const tilt = new THREE.Group();      // leans into turns
+  ship.add(tilt);
+
+  const red = new THREE.MeshStandardMaterial({ color: 0xd61f2a, roughness: 0.3, metalness: 0.35, side: THREE.DoubleSide });
+  const darkRed = new THREE.MeshStandardMaterial({ color: 0x9c121b, roughness: 0.35, metalness: 0.35, side: THREE.DoubleSide });
+  const silver = new THREE.MeshStandardMaterial({ color: 0xd9dde2, roughness: 0.25, metalness: 0.8 });
+
+  const top = new THREE.Mesh(new THREE.LatheGeometry([
+    new THREE.Vector2(0, 0.58), new THREE.Vector2(0.95, 0.58), new THREE.Vector2(1.55, 0.4),
+    new THREE.Vector2(2.1, 0.15), new THREE.Vector2(2.35, 0.0)], 48), red);
+  top.castShadow = true;
+  tilt.add(top);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(2.35, 0.08, 8, 48), silver);
+  rim.rotation.x = Math.PI / 2;
+  tilt.add(rim);
+
+  // alien silhouette inside the glass
+  const alien = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeAlienTexture(), transparent: true, depthWrite: false }));
+  alien.scale.set(0.72, 0.9, 1);
+  alien.position.y = 0.58 + 0.45;
+  alien.renderOrder = 1;
+  tilt.add(alien);
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.98, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0xbfefff, transparent: true, opacity: 0.22, roughness: 0.05, metalness: 0.3, depthWrite: false })
+  );
+  dome.position.y = 0.56;
+  dome.renderOrder = 2;
+  tilt.add(dome);
+  const domeRing = new THREE.Mesh(new THREE.TorusGeometry(0.98, 0.05, 8, 32), silver);
+  domeRing.rotation.x = Math.PI / 2;
+  domeRing.position.y = 0.58;
+  tilt.add(domeRing);
+
+  // spinning bottom with round lights
+  const bottom = new THREE.Group();
+  tilt.add(bottom);
+  const under = new THREE.Mesh(new THREE.LatheGeometry([
+    new THREE.Vector2(0, -0.62), new THREE.Vector2(0.7, -0.6), new THREE.Vector2(1.4, -0.48),
+    new THREE.Vector2(2.05, -0.22), new THREE.Vector2(2.35, 0.0)], 48), darkRed);
+  under.castShadow = true;
+  bottom.add(under);
+  const lights = [];
+  const LIGHTS = 14;
+  for (let i = 0; i < LIGHTS; i++) {
+    const a = (i / LIGHTS) * Math.PI * 2;
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8), mat);
+    bulb.position.set(Math.cos(a) * 2.18, -0.16, Math.sin(a) * 2.18);
+    bottom.add(bulb);
+    lights.push(mat);
+  }
+  // a few ridges so you can see the bottom spinning
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.2;
+    const ridge = new THREE.Mesh(BOX, silver);
+    ridge.scale.set(0.7, 0.06, 0.12);
+    ridge.position.set(Math.cos(a) * 1.0, -0.56, Math.sin(a) * 1.0);
+    ridge.rotation.y = -a;
+    bottom.add(ridge);
+  }
+  const emitterMat = new THREE.MeshBasicMaterial({ color: 0x6b7a3a });
+  const emitter = new THREE.Mesh(new THREE.CircleGeometry(0.5, 24), emitterMat);
+  emitter.rotation.x = Math.PI / 2;
+  emitter.position.y = -0.63;
+  tilt.add(emitter);
+
+  // the beam: an open cone shaped in the shader so its ground radius can change
+  const beamMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false,
+    uniforms: { uTime: { value: 0 }, uOpacity: { value: 0 }, uTopR: { value: 0.55 }, uBotR: { value: 3 }, uNight: { value: 0 } },
+    vertexShader: `
+      uniform float uTopR, uBotR;
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        vec3 p = position;
+        p.xz *= mix(uBotR, uTopR, position.y + 0.5);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }`,
+    fragmentShader: `
+      uniform float uTime, uOpacity, uNight;
+      varying vec2 vUv;
+      void main() {
+        float rings = 0.5 + 0.5 * sin(vUv.y * 22.0 - uTime * 7.0);
+        float swirl = 0.5 + 0.5 * sin(vUv.x * 6.2832 * 6.0 + uTime * 3.0 + vUv.y * 8.0);
+        vec3 col = mix(vec3(0.98, 0.95, 0.35), vec3(0.55, 1.0, 0.35), vUv.y);
+        float a = uOpacity * (0.16 + 0.16 * rings + 0.08 * swirl) * (0.55 + 0.45 * vUv.y) * (1.0 + 0.6 * uNight);
+        gl_FragColor = vec4(col * (1.0 + 0.4 * uNight), a);
+      }`,
+  });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 40, 1, true), beamMat);
+  beam.frustumCulled = false;
+  beam.renderOrder = 3;
+  frame.add(beam);
+  const glowTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grd.addColorStop(0, 'rgba(230,255,140,0.9)');
+    grd.addColorStop(0.7, 'rgba(200,250,90,0.45)');
+    grd.addColorStop(1, 'rgba(180,240,60,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  })();
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+  glow.rotation.x = -Math.PI / 2;
+  glow.position.y = 0.06;
+  frame.add(glow);
+  const spot = new THREE.SpotLight(0xd8ff7a, 0, UFO_H + 6, 0.45, 0.6, 1);
+  spot.position.y = UFO_H - 0.7;
+  frame.add(spot);
+  frame.add(spot.target);
+
+  return { frame, ship, tilt, bottom, lights, emitterMat, beam, beamMat, glow, spot };
+}
+const ufo = makeUfo();
+scene.add(ufo.frame);
+const ufoState = {
+  p: START_P.clone(), f: START_F.clone(),
+  speed: 0, turn: 0, spin: 0, lightStep: 0, lightTimer: 0,
+};
+
+function applyUfoLights() {
+  const s = ufoState.lightStep;
+  ufo.lights.forEach((mat, i) => {
+    // one on, one off around the ring; the pattern swaps and the colours move on each step
+    const on = (i + s) % 2 === 0;
+    mat.color.setHex(LIGHT_COLORS[(s + i) % LIGHT_COLORS.length]);
+    if (!on) mat.color.multiplyScalar(0.18);
+  });
+}
+applyUfoLights();
+
+// ---------------------------------------------------------------------------
+// Cows: white cows, bulls with horns and a few calves
+// ---------------------------------------------------------------------------
+const cowMat = {
+  white: std(0xf7f6f0), black: std(0x1c1c1c, 0.7), pink: std(0xf2a3a8, 0.6), hoof: std(0x2b2320),
+  bull: std(0x3a2418, 0.75), bullSnout: std(0x8a5a4a, 0.7), horn: std(0xf1e6c8, 0.5), gold: std(0xd9b23a, 0.3, 0.7),
+  calf: std(0xf6ead6), calfSpot: std(0xa66a3a), eye: std(0x0a0a0a, 0.2), rope: std(0xb08850, 0.9),
+};
+const TYPE_INFO = {
+  cow: { scale: 1.0 },
+  bull: { scale: 1.15 },
+  calf: { scale: 0.58 },
+};
+
+function makeCowModel(type) {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  root.add(body);
+  const main = type === 'bull' ? cowMat.bull : type === 'calf' ? cowMat.calf : cowMat.white;
+  part(SPH, main, body, 0, 1.05, 0, 0.5, 0.45, 0.85);
+  if (type === 'cow') {
+    for (const [x, y, z, s] of [[0.36, 1.18, 0.2, 0.24], [-0.33, 1.0, -0.32, 0.26], [0.05, 1.44, -0.35, 0.2], [-0.25, 1.32, 0.42, 0.16]]) {
+      part(SPH, cowMat.black, body, x, y, z, s * 0.7, s * 0.6, s);
+    }
+  } else if (type === 'calf') {
+    for (const [x, y, z, s] of [[0.34, 1.15, -0.1, 0.28], [-0.3, 1.2, 0.3, 0.22]]) part(SPH, cowMat.calfSpot, body, x, y, z, s * 0.7, s * 0.6, s);
+  }
+  // legs swing from the hips
+  const legs = [];
+  for (const [x, z] of [[0.26, 0.5], [-0.26, 0.5], [0.26, -0.5], [-0.26, -0.5]]) {
+    const hip = new THREE.Group();
+    hip.position.set(x, 0.85, z);
+    body.add(hip);
+    part(BOX, main, hip, 0, -0.36, 0, 0.17, 0.72, 0.17);
+    part(BOX, cowMat.hoof, hip, 0, -0.78, 0, 0.19, 0.14, 0.19);
+    legs.push(hip);
+  }
+  // head
+  const head = new THREE.Group();
+  head.position.set(0, 1.3, 0.78);
+  if (type === 'calf') head.scale.setScalar(1.25);
+  body.add(head);
+  part(BOX, main, head, 0, 0.08, 0.28, 0.44, 0.44, 0.5);
+  part(BOX, type === 'bull' ? cowMat.bullSnout : cowMat.pink, head, 0, -0.05, 0.56, 0.42, 0.26, 0.16);
+  for (const s of [-1, 1]) {
+    part(SPH, cowMat.eye, head, s * 0.2, 0.18, 0.44, 0.05, 0.06, 0.05, false);
+    part(SPH, cowMat.black, head, s * 0.09, -0.04, 0.645, 0.035, 0.05, 0.02, false);
+    const ear = part(SPH, main, head, s * 0.3, 0.2, 0.15, 0.17, 0.07, 0.1);
+    ear.rotation.z = s * -0.3;
+  }
+  if (type === 'bull') {
+    for (const s of [-1, 1]) {
+      const horn = part(new THREE.ConeGeometry(0.075, 0.5, 8), cowMat.horn, head, s * 0.34, 0.4, 0.18, 1, 1, 1);
+      horn.rotation.z = -s * 0.95;
+    }
+    const ring = part(new THREE.TorusGeometry(0.08, 0.02, 6, 14), cowMat.gold, head, 0, -0.17, 0.66, 1, 1, 1, false);
+    ring.rotation.x = 0.2;
+  }
+  if (type === 'cow') part(SPH, cowMat.pink, body, 0, 0.68, -0.3, 0.2, 0.13, 0.2);
+  // tail
+  const tail = new THREE.Group();
+  tail.position.set(0, 1.3, -0.82);
+  body.add(tail);
+  part(BOX, main, tail, 0, -0.35, 0, 0.06, 0.7, 0.06);
+  part(SPH, type === 'bull' ? cowMat.black : cowMat.black, tail, 0, -0.74, 0, 0.08, 0.12, 0.08);
+  root.scale.setScalar(TYPE_INFO[type].scale);
+  return { root, body, head, legs, tail };
+}
+
+let cows = [];
+let abducted = 0;
+const counts = { cow: 0, bull: 0, calf: 0 };
+let rescueCalf = null;
+let panicAnnounced = false;
+
+function spawnCow(type) {
+  const model = makeCowModel(type);
+  scene.add(model.root);
+  let p;
+  for (let i = 0; i < 40; i++) {
+    p = randomNear(barnP, 6, 42);
+    if (farFromFarm(p, 5) && groundDist(p, START_P) > 3) break;
+  }
+  const c = {
+    ...model, type,
+    scale: TYPE_INFO[type].scale,
+    p, f: randomTangent(p),
+    h: 0, vh: 0,
+    state: 'graze', timer: Math.random() * 4,
+    turnRate: 0, phase: Math.random() * 10, seed: Math.random() * 100,
+    run: false, approach: 0, hider: Math.random() < 0.55,
+    immune: 0, calmT: 0, fight: 0, escA: 0, saveT: 0, upT: 0, helperIdx: 0,
+    strength: 0.2 + Math.random() * 0.8,   // how hard a bull fights the beam
+    fallDir: new V3(), fallSpd: 0, pulling: false, speedNow: 0,
+  };
+  const r = Math.random();
+  if (r < 0.45) setState(c, 'graze');
+  else if (r < 0.8) setState(c, 'walk');
+  else if (r < 0.9) setState(c, 'toBarn');
+  else { setState(c, 'inBarn'); c.root.visible = false; c.timer = 3 + Math.random() * 15; }
+  cows.push(c);
+}
+
+function newHerd() {
+  for (const c of cows) scene.remove(c.root);
+  hideLasso();
+  cows = [];
+  abducted = 0;
+  counts.cow = counts.bull = counts.calf = 0;
+  rescueCalf = null;
+  panicAnnounced = false;
+  won = false;
+  gameTime = 0;
+  ui.win.classList.remove('show');
+  for (let i = 0; i < COW_COUNT; i++) spawnCow('cow');
+  for (let i = 0; i < BULL_COUNT; i++) spawnCow('bull');
+  for (let i = 0; i < CALF_COUNT; i++) spawnCow('calf');
+  updateScore();
+}
+
+function setState(c, s) {
+  c.state = s;
+  c.pulling = false;
+  if (s === 'graze') c.timer = 3 + Math.random() * 5;
+  else if (s === 'walk') { c.timer = 3 + Math.random() * 6; c.turnRate = (Math.random() - 0.5) * 1.2; }
+  else if (s === 'toBarn') { c.approach = 0; }
+  else if (s === 'flee') c.calmT = 0;
+}
+
+function idleNext(c) {
+  const r = Math.random();
+  if (r < 0.42) setState(c, 'graze');
+  else if (r < 0.85) setState(c, 'walk');
+  else { setState(c, 'toBarn'); c.run = false; }
+}
+
+function leaveBarn(c, state) {
+  c.root.visible = true;
+  c.p.copy(barnDoor);
+  c.f.copy(tangentToward(barnDoor, barnApproach, new V3()));
+  c.h = 0;
+  setState(c, state);
+}
+
+// ---------------------------------------------------------------------------
+// Sound (tiny synthesized effects, no files needed)
+// ---------------------------------------------------------------------------
+let audio = null, hum = null;
+function ensureAudio() {
+  if (!audio) {
+    try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audio = null; }
+  }
+  if (audio && audio.state === 'suspended') audio.resume();
+}
+window.addEventListener('pointerdown', ensureAudio);
+window.addEventListener('keydown', ensureAudio);
+
+function setHum(level, night) {
+  if (!audio) return;
+  if (!hum) {
+    const o1 = audio.createOscillator(), o2 = audio.createOscillator(), lfo = audio.createOscillator();
+    const lfoGain = audio.createGain(), filter = audio.createBiquadFilter(), g = audio.createGain();
+    o1.type = 'sawtooth'; o1.frequency.value = 62;
+    o2.type = 'sine'; o2.frequency.value = 124;
+    lfo.frequency.value = 6; lfoGain.gain.value = 12;
+    lfo.connect(lfoGain).connect(o2.frequency);
+    filter.type = 'lowpass'; filter.frequency.value = 500;
+    g.gain.value = 0;
+    o1.connect(filter); o2.connect(filter); filter.connect(g).connect(audio.destination);
+    o1.start(); o2.start(); lfo.start();
+    hum = { g, o1, o2 };
+  }
+  const t = audio.currentTime;
+  hum.g.gain.setTargetAtTime(level * 0.09, t, 0.08);
+  hum.o1.frequency.setTargetAtTime(night ? 78 : 62, t, 0.3);
+}
+
+function playMoo(pitch = 1) {
+  if (!audio) return;
+  const t = audio.currentTime;
+  const o = audio.createOscillator(), g = audio.createGain(), f = audio.createBiquadFilter();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(150 * pitch, t);
+  o.frequency.linearRampToValueAtTime(190 * pitch, t + 0.25);
+  o.frequency.linearRampToValueAtTime(120 * pitch, t + 0.8);
+  f.type = 'lowpass'; f.frequency.value = 900; f.Q.value = 6;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.25, t + 0.1);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+  o.connect(f).connect(g).connect(audio.destination);
+  o.start(t); o.stop(t + 0.9);
+}
+function playZap() {
+  if (!audio) return;
+  const t = audio.currentTime;
+  const o = audio.createOscillator(), g = audio.createGain();
+  o.type = 'square';
+  o.frequency.setValueAtTime(300, t);
+  o.frequency.exponentialRampToValueAtTime(1800, t + 0.25);
+  g.gain.setValueAtTime(0.08, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  o.connect(g).connect(audio.destination);
+  o.start(t); o.stop(t + 0.32);
+}
+function playThump() {
+  if (!audio) return;
+  const t = audio.currentTime;
+  const o = audio.createOscillator(), g = audio.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(160, t);
+  o.frequency.exponentialRampToValueAtTime(45, t + 0.25);
+  g.gain.setValueAtTime(0.5, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+  o.connect(g).connect(audio.destination);
+  o.start(t); o.stop(t + 0.32);
+}
+function playCheer() {
+  if (!audio) return;
+  const t = audio.currentTime;
+  [523, 659, 784, 1047].forEach((fr, i) => {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = 'triangle'; o.frequency.value = fr;
+    g.gain.setValueAtTime(0.0001, t + i * 0.09);
+    g.gain.exponentialRampToValueAtTime(0.15, t + i * 0.09 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.09 + 0.25);
+    o.connect(g).connect(audio.destination);
+    o.start(t + i * 0.09); o.stop(t + i * 0.09 + 0.3);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Input: micro:bit over Web Serial, or the keyboard and the light slider
+// ---------------------------------------------------------------------------
+const ui = {
+  connect: document.getElementById('connectBtn'),
+  disconnect: document.getElementById('disconnectBtn'),
+  calibrate: document.getElementById('calibrateBtn'),
+  flipY: document.getElementById('flipY'),
+  dot: document.getElementById('dot'),
+  status: document.getElementById('statusText'),
+  warn: document.getElementById('warn'),
+  mCow: document.getElementById('mCow'),
+  mBull: document.getElementById('mBull'),
+  mCalf: document.getElementById('mCalf'),
+  panicText: document.getElementById('panicText'),
+  reset: document.getElementById('resetBtn'),
+  dayBtn: document.getElementById('dayBtn'),
+  help: document.getElementById('help'),
+  win: document.getElementById('win'),
+  winText: document.getElementById('winText'),
+  playAgain: document.getElementById('playAgainBtn'),
+  pop: document.getElementById('pop'),
+  toast: document.getElementById('toast'),
+};
+
+const mb = { x: 0, y: 0, b: false, zeroX: 0, zeroY: 0, lastTime: 0 };
+const keys = new Set();
+
+try {
+  const saved = localStorage.getItem('ufoCowsFlipY') ?? localStorage.getItem('penguinCarFlipY');
+  ui.flipY.checked = saved === '1';
+} catch (e) {}
+ui.flipY.addEventListener('change', () => {
+  try { localStorage.setItem('ufoCowsFlipY', ui.flipY.checked ? '1' : '0'); } catch (e) {}
+});
+ui.calibrate.addEventListener('click', () => { mb.zeroX = mb.x; mb.zeroY = mb.y; });
+ui.reset.addEventListener('click', () => { newHerd(); ui.reset.blur(); });
+ui.playAgain.addEventListener('click', () => { newHerd(); ui.playAgain.blur(); });
+ui.dayBtn.addEventListener('click', () => { toggleDay(); ui.dayBtn.blur(); });
+
+// Day and night: the game starts at night, button A (or N) switches.
+let isNight = true, nightK = 1;
+function toggleDay() {
+  isNight = !isNight;
+  ui.dayBtn.textContent = isNight ? '🌙 Night' : '☀️ Day';
+  toast(isNight ? 'Night! The beam is stronger.' : 'Day! The beam is weaker.', 2);
+}
+
+function setStatus(text, connected) {
+  ui.status.textContent = text;
+  ui.dot.classList.toggle('on', !!connected);
+}
+function showWarning(text) {
+  ui.warn.textContent = text || '';
+  ui.warn.classList.toggle('show', !!text);
+}
+
+let port = null, reader = null, keepReading = false;
+
+if (!('serial' in navigator)) {
+  ui.connect.disabled = true;
+  showWarning(window.isSecureContext
+    ? 'This browser has no Web Serial. Open this file in Chrome or Edge on a computer. You can still fly with the keyboard.'
+    : 'Web Serial needs a secure page. Open the file directly (file://) or from https / localhost in Chrome or Edge.');
+} else if (window.self !== window.top) {
+  showWarning('If Connect does nothing, this page is inside a frame that blocks USB. Download the HTML and open it directly in Chrome or Edge.');
+}
+
+ui.connect.addEventListener('click', async () => {
+  try {
+    port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x0d28 }] });
+    await port.open({ baudRate: BAUD_RATE });
+  } catch (err) {
+    if (err && err.name !== 'NotFoundError') {
+      showWarning('Could not open the micro:bit: ' + err.message + '. Close other tabs that use it and try again.');
+    }
+    port = null;
+    return;
+  }
+  showWarning('');
+  setStatus('Connected, waiting for data…', true);
+  ui.connect.disabled = true;
+  ui.disconnect.disabled = false;
+  readLoop();
+});
+ui.disconnect.addEventListener('click', disconnect);
+
+async function disconnect() {
+  keepReading = false;
+  try { if (reader) await reader.cancel(); } catch (e) {}
+  try { if (port) await port.close(); } catch (e) {}
+  port = null; reader = null;
+  mb.lastTime = 0; mb.b = false;
+  setStatus('Not connected', false);
+  ui.connect.disabled = !('serial' in navigator);
+  ui.disconnect.disabled = true;
+}
+
+async function readLoop() {
+  keepReading = true;
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let gotData = false;
+  while (port && port.readable && keepReading) {
+    reader = port.readable.getReader();
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split(/\r?\n/);
+        buffer = lines.pop();
+        for (const line of lines) {
+          const parts = line.trim().split(',').map(n => parseInt(n, 10));
+          if (parts.length < 3 || parts.length > 4 || parts.some(Number.isNaN)) continue;
+          mb.x = parts[0]; mb.y = parts[1]; mb.b = parts[2] === 1;
+          if (parts.length === 4 && parts[3] === 1) toggleDay();   // button A was pressed
+          mb.lastTime = performance.now();
+          if (!gotData) {
+            gotData = true;
+            setStatus(parts.length === 4 ? 'Connected' : 'Connected (old program: no button A)', true);
+          }
+        }
+      }
+    } catch (err) {
+      if (keepReading) showWarning('Lost the micro:bit (' + err.message + '). Plug it back in and press Connect.');
+      break;
+    } finally {
+      reader.releaseLock();
+    }
+  }
+  if (keepReading) disconnect();
+}
+if ('serial' in navigator) {
+  navigator.serial.addEventListener('disconnect', e => { if (port && e.target === port) disconnect(); });
+}
+
+function microbitLive() { return mb.lastTime && performance.now() - mb.lastTime < 1000; }
+
+window.addEventListener('keydown', e => {
+  keys.add(e.code);
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+  if (e.code === 'KeyN' && !e.repeat) toggleDay();
+  if (e.code === 'KeyR' && !e.repeat) newHerd();
+});
+window.addEventListener('keyup', e => keys.delete(e.code));
+window.addEventListener('blur', () => keys.clear());
+
+function shapeTilt(v) {
+  const a = Math.abs(v);
+  if (a < TILT_DEADZONE) return 0;
+  return Math.sign(v) * Math.min((a - TILT_DEADZONE) / (TILT_FULL - TILT_DEADZONE), 1);
+}
+
+// Returns steer (-1 left .. 1 right), throttle (-1 back .. 1 forward) and beam.
+function readControls() {
+  let steer = 0, throttle = 0, beam = false;
+  if (microbitLive()) {
+    steer = shapeTilt(mb.x - mb.zeroX);
+    // Tilting the top edge (the USB end) away from you, down, makes y negative.
+    throttle = -shapeTilt(mb.y - mb.zeroY) * (ui.flipY.checked ? -1 : 1);
+    beam = mb.b;
+  }
+  const k = c => keys.has(c);
+  if (k('ArrowLeft') || k('KeyA')) steer = -1;
+  if (k('ArrowRight') || k('KeyD')) steer = 1;
+  if (k('ArrowUp') || k('KeyW')) throttle = 1;
+  if (k('ArrowDown') || k('KeyS')) throttle = -1;
+  if (k('KeyB') || k('Space')) beam = true;
+  return { steer, throttle, beam };
+}
+
+// ---------------------------------------------------------------------------
+// HUD helpers
+// ---------------------------------------------------------------------------
+let popTimer = 0, toastTimer = 0, heavyTimer = 0;
+function pop(text) {
+  ui.pop.textContent = text;
+  ui.pop.classList.remove('show');
+  void ui.pop.offsetWidth;
+  ui.pop.classList.add('show');
+  popTimer = 0.9;
+}
+function toast(text, seconds = 3.5) {
+  ui.toast.textContent = text;
+  ui.toast.classList.add('show');
+  toastTimer = seconds;
+}
+function updateScore() {
+  const show = (el, icon, n) => { el.textContent = icon + ' ' + Math.min(n, MISSION) + '/' + MISSION; el.classList.toggle('done', n >= MISSION); };
+  show(ui.mCow, '🐄', counts.cow);
+  show(ui.mBull, '🐂', counts.bull);
+  show(ui.mCalf, '🍼', counts.calf);
+  ui.panicText.textContent = 'Herd: ' + (abducted === 0 ? 'calm' : abducted < 3 ? 'nervous' : abducted < PANIC_BARN ? 'scared, running faster' : 'PANIC! Hiding in the barn');
+}
+
+// ---------------------------------------------------------------------------
+// Game rules for the beam and the herd
+// ---------------------------------------------------------------------------
+let beamOn = false, beamOpen = 0;
+let won = false, gameTime = 0, helpTimer = 5;
+let beamR = BEAM_R_DAY, lift = LIFT_DAY;
+
+function scareRadius() { return Math.min(7 + abducted * 1.4, 26); }
+function fleeSpeed(c) { return Math.min(2.4 + abducted * 0.6, 7.6) * (c.type === 'calf' ? 0.8 : 1); }
+
+function capture(c) {
+  setState(c, 'beamed');
+  c.fight = 0;
+  c.escA = Math.random() * Math.PI * 2;
+  c.saveT = 0;
+  playZap();
+  if (c.type === 'calf' && !rescueCalf) startRescue(c);
+}
+
+function release(c) {
+  setState(c, 'fall');
+  c.vh = 0; c.fallSpd = 0;
+  c.immune = 0.8;
+  if (c === rescueCalf) endRescue();
+}
+
+// When a calf is in the beam, one cow throws a lasso onto its leg and pulls,
+// and the cows around her line up behind and help.
+const lasso = { leader: null, phase: 'none', t: 0 };
+function calfPullers() {
+  if (lasso.phase !== 'caught') return 0;
+  return cows.filter(o => o.state === 'rescue' && o.pulling).length;
+}
+
+function startRescue(calf) {
+  const helpers = [];
+  for (const c of cows) {
+    if (c === calf) continue;
+    if (['graze', 'walk', 'flee', 'toBarn', 'fall'].includes(c.state) && c.h === 0 && groundDist(c.p, calf.p) < RESCUE_RADIUS) helpers.push(c);
+  }
+  // some cows come out of the barn to help if the barn is close
+  let fromBarn = 0;
+  if (groundDist(calf.p, barnP) < 26) {
+    for (const c of cows) {
+      if (c.state === 'inBarn' && fromBarn < 3) { leaveBarn(c, 'walk'); helpers.push(c); fromBarn++; }
+    }
+  }
+  if (!helpers.length) return;
+  helpers.sort((a, b) => groundDist(a.p, calf.p) - groundDist(b.p, calf.p));
+  helpers.length = Math.min(helpers.length, 8);
+  helpers.forEach((c, i) => { setState(c, 'rescue'); c.helperIdx = i; });
+  rescueCalf = calf;
+  lasso.leader = helpers.find(c => c.type !== 'calf') || helpers[0];
+  lasso.leader.helperIdx = 0;
+  helpers.filter(c => c !== lasso.leader).forEach((c, i) => { c.helperIdx = i + 1; });
+  lasso.phase = 'run';
+  lasso.t = 0;
+  toast(fromBarn ? 'A calf! Cows run out of the barn to save it!' : 'A calf! The herd runs to save it!');
+  playMoo(1.3);
+}
+
+function endRescue() {
+  rescueCalf = null;
+  lasso.leader = null;
+  lasso.phase = 'none';
+  hideLasso();
+  for (const c of cows) {
+    if (c.state === 'rescue') { setState(c, 'flee'); c.immune = 1; }
+  }
+}
+
+function abduct(c) {
+  setState(c, 'up');
+  c.upT = 0;
+  abducted++;
+  counts[c.type]++;
+  updateScore();
+  pop(c.type === 'bull' ? 'GOT THE BULL!' : c.type === 'calf' ? 'GOT THE CALF!' : 'MOO!');
+  playMoo(c.type === 'bull' ? 0.7 : c.type === 'calf' ? 1.5 : 1);
+  if (c === rescueCalf) endRescue();
+  if (!won && counts.cow >= MISSION && counts.bull >= MISSION && counts.calf >= MISSION) {
+    won = true;
+    ui.winText.textContent = 'You took ' + abducted + ' animals in ' + Math.round(gameTime) + ' seconds.';
+    setTimeout(() => { if (won) ui.win.classList.add('show'); playCheer(); }, 1200);
+    return;
+  }
+  if (abducted >= PANIC_BARN && !panicAnnounced) {
+    panicAnnounced = true;
+    toast(PANIC_BARN + ' cows taken! The herd runs to the barn. The barn is too heavy for the beam!', 5);
+    for (const o of cows) {
+      if (o.hider && ['graze', 'walk', 'flee'].includes(o.state)) { setState(o, 'toBarn'); o.run = true; }
+    }
+  }
+  if (cows.every(o => o.state === 'gone' || o.state === 'up' || o.state === 'inBarn')) {
+    toast('Every cow outside is gone! Press New herd to play again.', 6);
+  }
+}
+
+function bullBreaksFree(c) {
+  setState(c, 'fall');
+  c.vh = 3;
+  tangentToward(c.p, ufoState.p, c.fallDir).negate();
+  if (c.fallDir.lengthSq() < 0.5) c.fallDir.copy(randomTangent(c.p));
+  c.fallSpd = 5;
+  c.immune = 2.5;
+  pop('THE BULL BROKE FREE!');
+  playThump();
+}
+
+function saveCalf(calf) {
+  setState(calf, 'graze');
+  calf.h = 0;
+  calf.immune = 4;
+  endRescue();
+  pop('CALF SAVED!');
+  playCheer();
+}
+
+const _target = new V3(), _side = new V3();
+function updateCow(c, dt, t) {
+  if (c.state === 'gone') return;
+  if (c.immune > 0) c.immune -= dt;
+  const u = ufoState;
+  const distU = groundDist(c.p, u.p);
+  const scareR = scareRadius();
+  const scared = beamOn ? distU < scareR : (abducted > 0 && distU < scareR * 0.6);
+  let speed = 0;
+  let headDown = 0, legAmp = 0.6, flail = 0;
+  c.body.rotation.set(0, 0, 0);
+  c.body.position.y = 0;
+
+  const panicRun = () => {
+    if (abducted >= PANIC_BARN && c.hider) { setState(c, 'toBarn'); c.run = true; }
+    else setState(c, 'flee');
+  };
+
+  switch (c.state) {
+    case 'graze':
+      if (scared) { panicRun(); break; }
+      headDown = 0.75;
+      c.timer -= dt;
+      if (c.timer <= 0) idleNext(c);
+      break;
+
+    case 'walk':
+      if (scared) { panicRun(); break; }
+      speed = c.type === 'calf' ? 0.7 : 1.0;
+      c.f.applyAxisAngle(c.p, c.turnRate * dt);
+      if (groundDist(c.p, barnP) > 38) turnToward(c.f, c.p, tangentToward(c.p, barnP, _dir), dt * 1.5);
+      c.timer -= dt;
+      if (c.timer <= 0) idleNext(c);
+      break;
+
+    case 'toBarn': {
+      if (scared && !c.run) {
+        if (abducted >= PANIC_BARN && c.hider) c.run = true;
+        else { setState(c, 'flee'); break; }
+      }
+      const target = c.approach === 0 ? barnApproach : barnDoor;
+      speed = c.run ? fleeSpeed(c) : 1.1;
+      turnToward(c.f, c.p, tangentToward(c.p, target, _dir), dt * 5);
+      if (groundDist(c.p, target) < 0.9) {
+        if (c.approach === 0) c.approach = 1;
+        else {
+          setState(c, 'inBarn');
+          c.root.visible = false;
+          c.timer = abducted >= PANIC_BARN ? 20 + Math.random() * 20 : 6 + Math.random() * 18;
+        }
+      }
+      break;
+    }
+
+    case 'inBarn':
+      c.timer -= dt;
+      if (c.timer <= 0) {
+        if (abducted >= PANIC_BARN && groundDist(u.p, barnP) < 30) c.timer = 4 + Math.random() * 6; // too scary, stay inside
+        else leaveBarn(c, 'walk');
+      }
+      return;
+
+    case 'flee': {
+      tangentToward(c.p, u.p, _dir).negate();
+      turnToward(c.f, c.p, _dir, dt * 5);
+      speed = fleeSpeed(c);
+      if (abducted >= PANIC_BARN && c.hider) { setState(c, 'toBarn'); c.run = true; break; }
+      if (!scared && distU > scareR + 3) c.calmT += dt; else c.calmT = 0;
+      if (c.calmT > 1.5) setState(c, 'walk');
+      break;
+    }
+
+    case 'rescue': {
+      const calf = rescueCalf, leader = lasso.leader;
+      if (!calf || calf.state !== 'beamed' || !leader) { setState(c, 'flee'); break; }
+      // the leader stands at the edge of the beam, the helpers line up behind her
+      const ringR = beamR + 0.9;
+      if (c === leader) tangentToward(calf.p, c.p, _dir);
+      else tangentToward(calf.p, leader.p, _dir);
+      if (_dir.lengthSq() < 0.5) _dir.copy(randomTangent(calf.p));
+      _target.copy(calf.p);
+      moveOnPlanet(_target, _dir, ringR + 1.5 * c.helperIdx);
+      const d = groundDist(c.p, _target);
+      if (d > (c.pulling ? 1.6 : 0.6)) {
+        turnToward(c.f, c.p, tangentToward(c.p, _target, _dir), dt * 8);
+        speed = Math.min(fleeSpeed(c) + 2.5, 1 + d * 3);
+        c.pulling = false;
+      } else {
+        // stay in place: slide toward the spot, face the calf
+        if (d > 0.05) moveOnPlanet(c.p, tangentToward(c.p, _target, _dir), Math.min(d, 2 * dt));
+        turnToward(c.f, c.p, tangentToward(c.p, calf.p, _dir), dt * 6);
+        c.pulling = true;
+        if (lasso.phase === 'caught') {
+          moveOnPlanet(c.p, _tmp.copy(c.f), -Math.sin(t * 6 + c.helperIdx) * 0.4 * dt);
+          c.body.rotation.x = -0.35 - Math.sin(t * 6 + c.helperIdx) * 0.08;  // lean back and tug
+          legAmp = 0.35;
+        }
+      }
+      break;
+    }
+
+    case 'beamed': {
+      if (!beamOn) { release(c); break; }
+      const d = groundDist(c.p, u.p);
+      if (d > beamR * 1.4 + 0.5) { release(c); break; }
+      // where the cow is pulled to inside the beam
+      let off = 0;
+      if (c.type === 'cow') {
+        // tries to walk out of the beam, but never quite reaches the edge
+        off = beamR * 0.6 * (0.5 + 0.5 * Math.sin(t * 2.4 + c.seed));
+        c.escA += dt * 0.7 * Math.sin(t * 0.6 + c.seed);
+      } else if (c.type === 'bull') {
+        // fights hard, swinging all over the beam
+        off = beamR * (isNight ? 0.5 : 0.85) * (0.5 + 0.5 * Math.sin(t * 4 + c.seed));
+        c.escA += dt * 2.2;
+      }
+      _side.crossVectors(u.p, u.f).normalize();
+      if (c === rescueCalf && lasso.phase === 'caught' && lasso.leader) {
+        // the lasso drags the calf toward the cow pulling it
+        _target.copy(u.p);
+        tangentToward(u.p, lasso.leader.p, _dir);
+        if (_dir.lengthSq() > 0.5) moveOnPlanet(_target, _dir, Math.min(beamR * 0.8, 0.25 * calfPullers()));
+      } else offsetPoint(u.p, u.f, Math.cos(c.escA) * off, Math.sin(c.escA) * off, _target);
+      const ang = c.p.angleTo(_target);
+      if (ang > 1e-5) {
+        const step = Math.min(ang, (2 + ang * PLANET_R * 2.5) * dt / PLANET_R);
+        _axis.crossVectors(c.p, _target).normalize();
+        c.p.applyAxisAngle(_axis, step).normalize();
+      }
+      retangent(c.f, c.p);
+      // up we go
+      let net = lift;
+      if (c.type === 'calf') {
+        // Pullers count less while the UFO runs away with the calf.
+        const flee = Math.min(Math.abs(u.speed) / (UFO_SPEED * 0.65), 1);
+        const pull = calfPullers() * (1 - 0.75 * flee);
+        if (!isNight && pull > CALF_HELPERS_MAX) net = lift * 0.5 - pull * 0.42;   // too many cows: the herd wins
+        else net = lift * 0.5 - pull * 0.1;
+        if (net < 0 && c.h <= 0.02) { c.saveT += dt; if (c.saveT > 0.8) { saveCalf(c); break; } }
+        else c.saveT = 0;
+        c.f.applyAxisAngle(c.p, dt * 0.3);         // just hangs there, not moving
+      } else if (c.type === 'bull') {
+        // a strong bull rises slowly and often breaks free; a weak one gets taken
+        net = lift * (0.8 - 0.5 * c.strength);
+        c.fight += dt;
+        if (c.fight >= 0.5) {
+          c.fight -= 0.5;
+          if (Math.random() < c.strength * (isNight ? 0.06 : 0.14)) { bullBreaksFree(c); break; }
+        }
+        const rage = 0.5 + c.strength;
+        c.f.applyAxisAngle(c.p, dt * 3 * rage * Math.sin(t * 5 + c.seed));
+        c.body.rotation.z = Math.sin(t * 14 + c.seed) * 0.3 * rage;
+        c.body.rotation.x = Math.sin(t * 9 + c.seed) * 0.2 * rage;
+        flail = 0.9 + 0.6 * c.strength;
+      } else {
+        // white cow faces the way she is trying to run
+        _dir.copy(_side).multiplyScalar(Math.sin(c.escA)).addScaledVector(u.f, Math.cos(c.escA));
+        tangentToward(c.p, _tmp.copy(c.p).add(_dir), _dir);
+        turnToward(c.f, c.p, _dir, dt * 4);
+        c.body.rotation.z = Math.sin(t * 7 + c.seed) * 0.15;
+        flail = 1.0;
+      }
+      c.h = Math.max(0, c.h + net * dt);
+      if (c.type === 'bull') c.h = Math.max(0, c.h + Math.sin(t * 12 + c.seed) * 0.02 * c.strength);
+      if (c.h >= UFO_H - 1.7) abduct(c);
+      break;
+    }
+
+    case 'fall':
+      c.vh -= 18 * dt;
+      c.h += c.vh * dt;
+      if (c.fallSpd > 0) {
+        const f2 = _tmp.copy(c.fallDir);
+        moveOnPlanet(c.p, f2, c.fallSpd * dt);
+        c.fallDir.copy(f2);
+        retangent(c.f, c.p);
+      }
+      flail = c.type === 'calf' ? 0 : 1.4;
+      if (c.h <= 0) {
+        c.h = 0; c.fallSpd = 0;
+        if (c.type === 'calf') setState(c, 'graze');
+        else setState(c, 'flee');
+      }
+      break;
+
+    case 'up':
+      c.upT += dt;
+      c.h += (UFO_H - 0.4 - c.h) * Math.min(dt * 8, 1);
+      c.root.scale.setScalar(c.scale * Math.max(0.01, 1 - c.upT / 0.4));
+      if (c.upT > 0.4) { c.state = 'gone'; c.root.visible = false; }
+      break;
+  }
+
+  // beam catches cows standing under it
+  if (beamOn && beamOpen > 0.6 && c.immune <= 0 && ['graze', 'walk', 'flee', 'toBarn', 'fall'].includes(c.state)) {
+    if (groundDist(c.p, u.p) < beamR * 0.95) capture(c);
+  }
+
+  if (speed > 0) moveOnPlanet(c.p, c.f, speed * dt);
+
+  // keep out of trees, ponds and the barn walls
+  if (c.h === 0 && c.state !== 'beamed') {
+    for (const dec of decorations) {
+      if (dec.barn && c.state === 'toBarn' && c.approach === 1) continue;
+      const r = dec.radius + 0.5 * c.scale;
+      const d = groundDist(c.p, dec.p);
+      if (d < r) {
+        tangentToward(c.p, dec.p, _dir).negate();
+        if (_dir.lengthSq() < 0.5) continue;
+        const f2 = _tmp.copy(_dir);
+        moveOnPlanet(c.p, f2, r - d);
+        if (c.state === 'walk') c.turnRate = (Math.random() - 0.5) * 2.5;
+      }
+    }
+  }
+  retangent(c.f, c.p);
+
+  // animation
+  c.speedNow = speed;
+  if (flail > 0) {
+    c.phase += dt * 14;
+    c.legs.forEach((leg, i) => { leg.rotation.x = Math.sin(c.phase + i * 1.7) * 0.9 * flail; });
+  } else if (c.type === 'calf' && c.state === 'beamed') {
+    c.legs.forEach(leg => { leg.rotation.x = 0; });
+  } else {
+    c.phase += speed * dt * 6 / c.scale;
+    const swing = speed > 0.05 ? Math.sin(c.phase) * legAmp * Math.min(speed / 2, 1.2) : 0;
+    c.legs[0].rotation.x = swing; c.legs[3].rotation.x = swing;
+    c.legs[1].rotation.x = -swing; c.legs[2].rotation.x = -swing;
+    if (speed > 2.5) c.body.position.y = Math.abs(Math.sin(c.phase)) * 0.12;
+  }
+  const chew = headDown ? Math.sin(t * 4 + c.seed) * 0.08 : 0;
+  c.head.rotation.x += (headDown + chew - c.head.rotation.x) * Math.min(dt * 4, 1);
+  c.tail.rotation.x = 0.25 + Math.sin(t * 3 + c.seed) * 0.1;
+  c.tail.rotation.z = Math.sin(t * 2.3 + c.seed) * 0.4;
+
+  placeOnPlanet(c.root, c.p, c.f, c.h);
+}
+
+// keep cows from walking through each other
+function separateCows() {
+  for (let i = 0; i < cows.length; i++) {
+    const a = cows[i];
+    if (!a.root.visible || a.h > 0 || a.state === 'up') continue;
+    for (let j = i + 1; j < cows.length; j++) {
+      const b = cows[j];
+      if (!b.root.visible || b.h > 0 || b.state === 'up') continue;
+      const minD = 0.75 * (a.scale + b.scale);
+      const d = groundDist(a.p, b.p);
+      if (d < minD && d > 1e-4) {
+        const push = (minD - d) * 0.5;
+        tangentToward(a.p, b.p, _dir).negate();
+        moveOnPlanet(a.p, _tmp.copy(_dir), push);
+        tangentToward(b.p, a.p, _dir).negate();
+        moveOnPlanet(b.p, _tmp.copy(_dir), push);
+      }
+    }
+  }
+}
+
+// The lasso: a loop that twirls over the leader's head, flies to the calf's back leg,
+// and a rope that runs from the calf through the leader and every helper behind her.
+const ropeGeo = new THREE.CylinderGeometry(0.04, 0.04, 1, 6);
+const ropeSegs = [];
+const lassoLoop = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.045, 6, 20), cowMat.rope);
+lassoLoop.visible = false;
+scene.add(lassoLoop);
+const _ra = new V3(), _rb = new V3(), _up = new V3(0, 1, 0), _zAxis = new V3(0, 0, 1), _loopPos = new V3(), _leg = new V3();
+const ropePts = [];
+
+function hideLasso() {
+  lassoLoop.visible = false;
+  ropeSegs.forEach(m => { m.visible = false; });
+}
+function ropeSegment(i, a, b) {
+  if (!ropeSegs[i]) { ropeSegs[i] = new THREE.Mesh(ropeGeo, cowMat.rope); scene.add(ropeSegs[i]); }
+  const m = ropeSegs[i];
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(_up, _ra.copy(b).sub(a).normalize());
+  m.scale.set(1, a.distanceTo(b), 1);
+  m.visible = true;
+}
+function headPoint(c, out) { return c.head.getWorldPosition(out).addScaledVector(c.p, 0.05); }
+
+function updateLasso(dt, t) {
+  const leader = lasso.leader, calf = rescueCalf;
+  if (!leader || !calf || lasso.phase === 'none') { hideLasso(); return; }
+  lasso.t += dt;
+  if (lasso.phase === 'run') {
+    hideLasso();
+    if (leader.pulling) { lasso.phase = 'twirl'; lasso.t = 0; }
+    return;
+  }
+  if (lasso.phase === 'twirl' && lasso.t > 0.6) {
+    lasso.phase = 'throw'; lasso.t = 0;
+    pop('LASSO!');
+  } else if (lasso.phase === 'throw' && lasso.t > 0.45) {
+    lasso.phase = 'caught'; lasso.t = 0;
+    toast('Got the calf by the leg! Pull, cows, pull!', 2.5);
+    playThump();
+  }
+  const up = leader.p;
+  const hand = headPoint(leader, new V3());
+  calf.legs[2].children[1].getWorldPosition(_leg);
+  if (lasso.phase === 'twirl') {
+    // spin the loop over her head
+    const a = t * 12;
+    _ra.crossVectors(up, leader.f).normalize();
+    _loopPos.copy(hand).addScaledVector(up, 1.1).addScaledVector(_ra, Math.cos(a) * 0.5).addScaledVector(leader.f, Math.sin(a) * 0.5);
+  } else if (lasso.phase === 'throw') {
+    const s = Math.min(lasso.t / 0.45, 1);
+    _loopPos.copy(hand).addScaledVector(up, 1.1).lerp(_leg, s).addScaledVector(up, Math.sin(s * Math.PI) * 2.5);
+  } else {
+    _loopPos.copy(_leg);
+  }
+  lassoLoop.position.copy(_loopPos);
+  lassoLoop.quaternion.setFromUnitVectors(_zAxis, up);
+  lassoLoop.scale.setScalar(lasso.phase === 'caught' ? 0.45 : 1);
+  lassoLoop.visible = true;
+
+  // rope: loop -> leader, and once caught, on through the helpers behind her
+  ropePts.length = 0;
+  ropePts.push(_loopPos.clone(), hand);
+  if (lasso.phase === 'caught') {
+    cows.filter(o => o !== leader && o.state === 'rescue' && o.pulling)
+      .sort((a, b) => a.helperIdx - b.helperIdx)
+      .forEach(o => ropePts.push(headPoint(o, new V3())));
+  }
+  let i = 0;
+  for (; i < ropePts.length - 1; i++) ropeSegment(i, ropePts[i], ropePts[i + 1]);
+  for (; i < ropeSegs.length; i++) ropeSegs[i].visible = false;
+}
+
+// ---------------------------------------------------------------------------
+// Game loop
+// ---------------------------------------------------------------------------
+const camPos = new V3(), camUp = new V3(0, 1, 0), camLook = new V3();
+const clock = new THREE.Clock();
+const FIXED_SUN = new V3(0.55, 0.35, 0.75).normalize();
+const FIXED_MOON = new V3(-0.6, 0.3, 0.5).normalize();
+const sunDir = new V3(), moonDir = new V3();
+const dayCol = { hemiSky: new THREE.Color(0xffffff), hemiGround: new THREE.Color(0x7fa86a) };
+const nightCol = { hemiSky: new THREE.Color(0x5a6fb0), hemiGround: new THREE.Color(0x1a2a22) };
+
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.fov = w < h ? 78 : 62;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+newHerd();
+
+function skyDir(p, fixed, out) {
+  // a direction partly up and partly toward a fixed side, so it stays put while you turn
+  tangentToward(p, fixed, out);
+  if (out.lengthSq() < 0.5) out.copy(randomTangent(p));
+  return out.multiplyScalar(0.85).add(p).normalize();
+}
+
+function tick() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  const u = ufoState;
+  const ctl = readControls();
+
+  // --- day / night (button A)
+  if (!won) gameTime += dt;
+  if (helpTimer > 0) { helpTimer -= dt; if (helpTimer <= 0) ui.help.classList.add('hide'); }
+  nightK += ((isNight ? 1 : 0) - nightK) * Math.min(dt * 1.5, 1);
+  beamR = lerp(BEAM_R_DAY, BEAM_R_NIGHT, nightK);
+  lift = lerp(LIFT_DAY, LIFT_NIGHT, nightK);
+
+  // --- fly the UFO
+  const top = UFO_SPEED * (ctl.beam ? 0.65 : 1);
+  const target = ctl.throttle * top * (ctl.throttle < 0 ? 0.7 : 1);
+  u.speed += Math.max(-10 * dt, Math.min(10 * dt, target - u.speed));
+  u.turn += (ctl.steer * UFO_TURN - u.turn) * Math.min(dt * 6, 1);
+  u.f.applyAxisAngle(u.p, -u.turn * dt);
+  moveOnPlanet(u.p, u.f, u.speed * dt);
+  placeOnPlanet(ufo.frame, u.p, u.f, 0);
+  ufo.ship.position.y = UFO_H + Math.sin(t * 1.6) * 0.15;
+  ufo.tilt.rotation.x += ((u.speed / UFO_SPEED) * 0.16 - ufo.tilt.rotation.x) * Math.min(dt * 4, 1);
+  ufo.tilt.rotation.z += ((u.turn / UFO_TURN) * 0.2 - ufo.tilt.rotation.z) * Math.min(dt * 4, 1);
+
+  // the bottom spins and the lights blink only while the UFO is moving
+  const moving = Math.abs(u.speed) > 0.4 || Math.abs(u.turn) > 0.25;
+  u.spin += ((moving ? 4.5 : 0) - u.spin) * Math.min(dt * 3, 1);
+  ufo.bottom.rotation.y += u.spin * dt;
+  if (moving) {
+    u.lightTimer += dt;
+    if (u.lightTimer > 0.18) { u.lightTimer = 0; u.lightStep++; applyUfoLights(); }
+  }
+
+  // --- beam
+  beamOn = ctl.beam;
+  beamOpen += ((beamOn ? 1 : 0) - beamOpen) * Math.min(dt * 7, 1);
+  const bo = beamOpen;
+  ufo.beam.visible = bo > 0.01;
+  ufo.beam.scale.set(1, UFO_H - 0.6, 1);
+  ufo.beam.position.y = (UFO_H - 0.6) / 2;
+  ufo.beamMat.uniforms.uTime.value = t;
+  ufo.beamMat.uniforms.uOpacity.value = bo;
+  ufo.beamMat.uniforms.uBotR.value = beamR * (0.3 + 0.7 * bo);
+  ufo.beamMat.uniforms.uNight.value = nightK;
+  ufo.glow.scale.setScalar(beamR * 1.15);
+  ufo.glow.material.opacity = bo * (0.55 + nightK * 0.4);
+  ufo.spot.intensity = bo * (0.6 + nightK * 2.4);
+  ufo.spot.angle = Math.atan((beamR + 1) / UFO_H);
+  ufo.emitterMat.color.setHex(beamOn ? 0xe8ff7a : 0x6b7a3a);
+  setHum(bo, isNight);
+
+  // the barn is too heavy to lift
+  let barnShake = 0;
+  if (beamOn && groundDist(u.p, barnP) < beamR + 3) {
+    barnShake = 1;
+    heavyTimer -= dt;
+    if (heavyTimer <= 0) { pop('TOO HEAVY!'); heavyTimer = 3; }
+  } else heavyTimer = Math.min(heavyTimer, 0.5);
+  barn.wobble.rotation.z = Math.sin(t * 31) * 0.015 * barnShake;
+  barn.wobble.position.y = Math.abs(Math.sin(t * 17)) * 0.1 * barnShake;
+
+  // --- cows
+  for (const c of cows) updateCow(c, dt, t);
+  separateCows();
+  updateLasso(dt, t);
+
+  // --- clouds drift and fade when the camera is inside them
+  const nightCloud = _cloudCol.copy(DAY_CLOUD).lerp(NIGHT_CLOUD, nightK);
+  for (const cl of clouds) {
+    cl.p.applyAxisAngle(CLOUD_AXIS, cl.speed * dt);
+    cl.f.applyAxisAngle(CLOUD_AXIS, cl.speed * dt);
+    retangent(cl.f, cl.p);
+    placeOnPlanet(cl.g, cl.p, cl.f, cl.h);
+    const d = camera.position.distanceTo(cl.g.position);
+    cl.mat.opacity = Math.max(0.12, Math.min(0.9, (d - 3) / 8));
+    cl.mat.color.copy(nightCloud);
+  }
+
+  // --- camera behind and above the UFO
+  const back = 12.5, height = UFO_H + 4.5;
+  const desired = _tmp.copy(u.p).multiplyScalar(PLANET_R + height).addScaledVector(u.f, -back);
+  if (camPos.lengthSq() === 0) camPos.copy(desired);
+  camPos.lerp(desired, Math.min(dt * 4, 1));
+  camUp.lerp(u.p, Math.min(dt * 4, 1)).normalize();
+  camLook.copy(u.p).multiplyScalar(PLANET_R + 4).addScaledVector(u.f, 4);
+  camera.position.copy(camPos);
+  camera.up.copy(camUp);
+  camera.lookAt(camLook);
+
+  // --- sky, sun and moon
+  skyDir(u.p, FIXED_SUN, sunDir);
+  skyDir(u.p, FIXED_MOON, moonDir);
+  sky.position.copy(camera.position);
+  skyMat.uniforms.uUp.value.copy(u.p);
+  skyMat.uniforms.uNight.value = nightK;
+  skyMat.uniforms.uTime.value = t;
+  sunDisk.position.copy(camera.position).addScaledVector(sunDir, 140);
+  sunDisk.material.opacity = 1 - nightK;
+  moonDisk.position.copy(camera.position).addScaledVector(moonDir, 140);
+  moonDisk.material.opacity = nightK;
+  scene.fog.color.copy(DAY_FOG).lerp(NIGHT_FOG, nightK);
+
+  const ground = _c.copy(u.p).multiplyScalar(PLANET_R);
+  sun.target.position.copy(ground);
+  sun.position.copy(ground).addScaledVector(sunDir, 50);
+  sun.intensity = lerp(1.0, 0.05, nightK);
+  moonLight.target.position.copy(ground);
+  moonLight.position.copy(ground).addScaledVector(moonDir, 50);
+  moonLight.intensity = nightK * 0.35;
+  hemi.intensity = lerp(0.65, 0.22, nightK);
+  hemi.color.copy(dayCol.hemiSky).lerp(nightCol.hemiSky, nightK);
+  hemi.groundColor.copy(dayCol.hemiGround).lerp(nightCol.hemiGround, nightK);
+  windowMat.emissiveIntensity = nightK * 1.3;
+
+  // --- HUD timers
+  if (popTimer > 0) { popTimer -= dt; if (popTimer <= 0) ui.pop.classList.remove('show'); }
+  if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) ui.toast.classList.remove('show'); }
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
