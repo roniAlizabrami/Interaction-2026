@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#2b1d5c">
+<title>מירוץ עכברים</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{
+  --red:#e53935; --yellow:#fdd835; --ink:#1f1640; --sky1:#6a5cff; --sky2:#ff7ac6;
+  --card:#ffffff; --muted:#6b6490;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{margin:0;height:100%;overflow:hidden;background:#2b1d5c;color:var(--ink);
+  font-family:Rubik,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+  -webkit-user-select:none;user-select:none;touch-action:manipulation;overscroll-behavior:none}
+button{font-family:inherit}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:max(16px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));text-align:center;overflow:auto}
+.screen.on{display:flex}
+.bg{background:linear-gradient(160deg,var(--sky1),#8f5cff 45%,var(--sky2))}
+.btn{border:0;border-radius:999px;padding:16px 28px;font-size:20px;font-weight:800;color:#fff;
+  background:linear-gradient(180deg,#ff5b7f,#e5306a);box-shadow:0 6px 0 #a3164a,0 10px 24px rgba(0,0,0,.25);
+  cursor:pointer;min-width:220px;margin:8px;transition:transform .08s}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #a3164a}
+.btn.alt{background:linear-gradient(180deg,#4fc3f7,#1e88e5);box-shadow:0 6px 0 #0d47a1,0 10px 24px rgba(0,0,0,.25)}
+.btn.green{background:linear-gradient(180deg,#66bb6a,#2e7d32);box-shadow:0 6px 0 #1b5e20,0 10px 24px rgba(0,0,0,.25)}
+.btn.ghost{background:rgba(255,255,255,.18);box-shadow:none;font-size:16px;padding:10px 18px;min-width:0}
+.card{background:var(--card);border-radius:24px;padding:20px;max-width:420px;width:100%;
+  box-shadow:0 12px 40px rgba(0,0,0,.25)}
+h1.title{font-size:clamp(44px,13vw,76px);font-weight:900;margin:0;color:#fff;line-height:1;
+  text-shadow:0 4px 0 #3b1d8f,0 8px 0 #24125c,0 14px 30px rgba(0,0,0,.35);letter-spacing:1px}
+h2{margin:0 0 10px;font-size:26px;font-weight:900}
+p{margin:6px 0;line-height:1.45;font-size:17px}
+.muted{color:var(--muted);font-size:15px}
+.white{color:#fff}
+.mice{display:flex;gap:8px;justify-content:center;margin:18px 0 6px}
+.mice svg{width:min(42vw,190px);height:auto;animation:bob 0.9s ease-in-out infinite}
+.mice svg:nth-child(2){animation-delay:.45s}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-10px) rotate(2deg)}}
+.wheel{transform-box:fill-box;transform-origin:center;animation:spin .5s linear infinite}
+@keyframes spin{to{transform:rotate(-360deg)}}
+.checker{height:18px;width:100%;max-width:420px;margin:10px auto;border-radius:6px;
+  background:repeating-conic-gradient(#222 0 25%,#fff 0 50%) 0 0/18px 18px}
+.tips{text-align:right;margin:10px 0;padding:0 8px}
+.tips li{margin:6px 0;font-size:16px}
+.preview{width:220px;height:220px;margin:10px auto;border-radius:18px;
+  background:repeating-conic-gradient(#e7e3f7 0 25%,#fff 0 50%) 0 0/20px 20px;display:flex;align-items:center;justify-content:center}
+.preview img,.preview canvas{max-width:90%;max-height:90%}
+.spinner{width:56px;height:56px;border-radius:50%;border:7px solid #e5e0ff;border-top-color:#8f5cff;animation:spin2 1s linear infinite;margin:14px auto}
+@keyframes spin2{to{transform:rotate(360deg)}}
+.code{font-size:64px;font-weight:900;letter-spacing:10px;direction:ltr;color:#3b1d8f}
+input.codein{font-size:40px;font-weight:900;width:200px;text-align:center;letter-spacing:8px;direction:ltr;
+  border:3px solid #d8d0ff;border-radius:16px;padding:8px;font-family:inherit;color:#3b1d8f}
+.row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.err{color:#d32f2f;font-weight:600;min-height:22px}
+.sep{margin:14px 0;color:var(--muted);font-weight:600}
+/* game */
+#game{padding:0;display:none;background:#5cbf5a}
+#game.on{display:block}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+#cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;background:#000}
+#game.ar{background:#000}
+#game.ar #cam{display:block}
+#markOv{position:absolute;inset:0;display:none;flex-direction:column;justify-content:space-between;align-items:center;pointer-events:none;
+  padding:calc(78px + env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom))}
+#markOv.on{display:flex}
+#markOv .msg{background:rgba(31,22,64,.88);color:#fff;border-radius:18px;padding:12px 16px;font-weight:800;font-size:17px;max-width:420px}
+#markOv .row{pointer-events:auto}
+#remark{position:absolute;top:calc(70px + env(safe-area-inset-top));left:12px;display:none;border:0;border-radius:999px;padding:8px 12px;
+  background:rgba(31,22,64,.8);color:#fff;font-weight:800;font-size:14px}
+#remark.on{display:block}
+.tap{position:absolute;width:118px;height:118px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(255,255,255,.18) 60%,rgba(255,255,255,.08));
+  border:3px solid rgba(255,255,255,.85);box-shadow:0 6px 20px rgba(0,0,0,.25),inset 0 0 18px rgba(255,255,255,.35);
+  bottom:calc(14px + env(safe-area-inset-bottom));touch-action:none;display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.9);font-weight:900;font-size:15px;text-shadow:0 1px 3px rgba(0,0,0,.4);transition:transform .06s}
+.tap.l{left:12px}.tap.r{right:12px}
+.tap.hit{transform:scale(.88);background:radial-gradient(circle,rgba(255,255,255,.7),rgba(255,255,255,.25))}
+.tap.off{opacity:.35}
+#virusBtn{position:absolute;left:50%;bottom:calc(26px + env(safe-area-inset-bottom));width:96px;height:96px;margin-left:-48px;border-radius:50%;
+  border:4px solid #fff;background:radial-gradient(circle at 35% 30%,#7cff6b,#18a018 60%,#0b6b0b);color:#fff;font-weight:900;font-size:19px;
+  letter-spacing:.5px;box-shadow:0 0 0 6px rgba(124,255,107,.35),0 8px 22px rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;flex-direction:column;
+  animation:pulse .5s ease-in-out infinite alternate;touch-action:none}
+#virusBtn.on{display:flex}
+#virusBtn .bug{font-size:28px;line-height:1}
+@keyframes pulse{to{transform:scale(1.1);box-shadow:0 0 0 14px rgba(124,255,107,.15),0 8px 22px rgba(0,0,0,.35)}}
+#virusBar{position:absolute;left:8px;right:8px;bottom:-12px;height:6px;border-radius:3px;background:rgba(255,255,255,.4);overflow:hidden}
+#virusBar i{display:block;height:100%;background:#fff;width:100%}
+.overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;pointer-events:none}
+.overlay.on{display:flex}
+#count{font-size:min(38vw,190px);font-weight:900;color:#fff;-webkit-text-stroke:6px #3b1d8f;paint-order:stroke fill;
+  text-shadow:0 10px 30px rgba(0,0,0,.4);direction:ltr}
+#count.pop{animation:pop .9s ease-out}
+@keyframes pop{0%{transform:scale(2.2);opacity:0}25%{transform:scale(1);opacity:1}80%{opacity:1}100%{transform:scale(.8);opacity:0}}
+#intro{background:rgba(31,22,64,.55);pointer-events:auto}
+#intro .pair{display:flex;gap:18px;align-items:flex-end;justify-content:center;direction:ltr}
+#intro .who{display:flex;flex-direction:column;align-items:center;color:#fff;font-weight:900;font-size:20px}
+#intro canvas{width:min(36vw,170px);height:auto}
+#intro .vs{color:#fff;font-size:44px;font-weight:900;-webkit-text-stroke:3px #3b1d8f;paint-order:stroke fill;margin-bottom:60px}
+.toast{position:absolute;top:calc(84px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:rgba(31,22,64,.88);color:#fff;
+  padding:10px 18px;border-radius:999px;font-weight:800;font-size:17px;display:none;white-space:nowrap}
+.toast.on{display:block;animation:fadein .2s}
+@keyframes fadein{from{opacity:0;transform:translate(-50%,-8px)}}
+/* error popup (retro dialog) */
+#errWrap{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,40,90,.35);pointer-events:auto;direction:ltr}
+#errWrap.on{display:flex}
+.stack{position:relative;width:min(88vw,340px);height:260px}
+.win{position:absolute;width:100%;background:#ebebeb;border:2px solid #fff;box-shadow:0 2px 0 #9a9a9a,0 6px 16px rgba(0,0,0,.25);font-family:Tahoma,Verdana,Segoe UI,sans-serif}
+.win .bar{background:linear-gradient(90deg,#0a2a8f,#1546c4);color:#fff;font-size:14px;padding:5px 8px;display:flex;justify-content:space-between;align-items:center;height:30px}
+.win .x{width:24px;height:22px;background:#d9302c;border:2px solid #fff;color:#fff;font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center;
+  line-height:1;padding:0;border-radius:2px;cursor:pointer}
+.win .x.hide{visibility:hidden}
+.win .body{display:flex;align-items:center;gap:14px;padding:20px 18px 8px;font-size:14px;color:#111;text-align:left}
+.win .icon{width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#ff5a5a,#c4121a);border:2px solid #fff;box-shadow:0 0 0 1px #a00;
+  color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:22px;flex:none}
+.win .okrow{text-align:center;margin:10px 0 16px}
+.win .ok{display:inline-block;border:1px solid #333;outline:1px dotted #333;outline-offset:-4px;background:#eee;padding:4px 24px;font-size:13px;color:#666}
+.win.big .x{width:44px;height:36px;font-size:22px}
+.win.big .bar{height:44px;font-size:16px}
+/* BSOD */
+#bsod{position:fixed;inset:0;background:#0a5fc2;color:#fff;display:none;flex-direction:column;justify-content:center;padding:32px 28px;direction:ltr;text-align:left;
+  font-family:"Segoe UI",Rubik,system-ui,sans-serif;z-index:50}
+#bsod.on{display:flex}
+#bsod .face{font-size:110px;line-height:1;margin-bottom:22px}
+#bsod p{font-size:20px;max-width:560px}
+#bsod .small{font-size:14px;opacity:.85;margin-top:22px}
+#bsod .heb{direction:rtl;text-align:right;font-family:Rubik,system-ui,sans-serif;font-weight:800;font-size:22px;margin-top:20px}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:40;width:100%;height:100%}
+#win{z-index:45;background:transparent;pointer-events:none}
+#win .card{pointer-events:auto;max-width:340px}
+.endbtns{position:fixed;left:0;right:0;bottom:calc(24px + env(safe-area-inset-bottom));display:none;justify-content:center;z-index:60}
+.endbtns.on{display:flex}
+.endbtns .ghost{background:rgba(31,22,64,.85);color:#fff}
+.tap.gone{display:none}
+#rotate{position:fixed;inset:0;background:#2b1d5c;color:#fff;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:99;font-size:22px;font-weight:800;padding:20px;text-align:center}
+@media (orientation:landscape) and (max-height:500px){#rotate{display:flex}}
+#rotate .ph{font-size:70px;animation:rot 1.6s ease-in-out infinite}
+@keyframes rot{50%{transform:rotate(-90deg)}}
+</style>
+</head>
+<body>
+
+<!-- ============ SVG: cute mouse in a race car ============ -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="mouseCar">
+      <path d="M22 112 C 0 110, -4 70, 18 62" stroke="#f48fb1" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <circle cx="70" cy="40" r="24" fill="#b9b6cc"/><circle cx="70" cy="40" r="14" fill="#f8a5c2"/>
+      <circle cx="132" cy="40" r="24" fill="#b9b6cc"/><circle cx="132" cy="40" r="14" fill="#f8a5c2"/>
+      <ellipse cx="101" cy="76" rx="38" ry="34" fill="#c9c6da"/>
+      <ellipse cx="78" cy="88" rx="8" ry="5" fill="#f8a5c2" opacity=".7"/>
+      <ellipse cx="124" cy="88" rx="8" ry="5" fill="#f8a5c2" opacity=".7"/>
+      <circle cx="88" cy="72" r="7" fill="#1f1640"/><circle cx="114" cy="72" r="7" fill="#1f1640"/>
+      <circle cx="90.5" cy="69.5" r="2.5" fill="#fff"/><circle cx="116.5" cy="69.5" r="2.5" fill="#fff"/>
+      <ellipse cx="101" cy="85" rx="6" ry="4.5" fill="#ff6b9a"/>
+      <path d="M94 92 Q101 99 108 92" stroke="#1f1640" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      <g stroke="#6b6490" stroke-width="1.6" stroke-linecap="round">
+        <line x1="84" y1="86" x2="58" y2="80"/><line x1="84" y1="90" x2="57" y2="92"/>
+        <line x1="118" y1="86" x2="144" y2="80"/><line x1="118" y1="90" x2="145" y2="92"/>
+      </g>
+      <path d="M14 112 Q 20 96 50 96 L 150 96 Q 186 98 192 122 L 192 128 Q 192 136 182 136 L 20 136 Q 10 136 12 126 Z" fill="currentColor" stroke="#1f1640" stroke-width="3"/>
+      <rect x="30" y="104" width="140" height="7" rx="3.5" fill="#fff" opacity=".55"/>
+      <circle cx="104" cy="120" r="11" fill="#fff" stroke="#1f1640" stroke-width="2"/>
+      <g class="wheel"><circle cx="50" cy="138" r="17" fill="#1f1640"/><circle cx="50" cy="138" r="7" fill="#bbb"/><rect x="48.5" y="123" width="3" height="30" fill="#555"/></g>
+      <g class="wheel"><circle cx="160" cy="138" r="17" fill="#1f1640"/><circle cx="160" cy="138" r="7" fill="#bbb"/><rect x="158.5" y="123" width="3" height="30" fill="#555"/></g>
+    </g>
+  </defs>
+</svg>
+
+<!-- ============ 1. Splash ============ -->
+<section id="splash" class="screen bg on">
+  <h1 class="title">מירוץ<br>עכברים</h1>
+  <div class="mice">
+    <svg viewBox="-6 0 206 160" style="color:var(--red)"><use href="#mouseCar"/><text x="104" y="125" font-size="14" font-weight="900" text-anchor="middle" fill="#1f1640">1</text></svg>
+    <svg viewBox="-6 0 206 160" style="color:var(--yellow)"><use href="#mouseCar"/><text x="104" y="125" font-size="14" font-weight="900" text-anchor="middle" fill="#1f1640">2</text></svg>
+  </div>
+  <div class="checker"></div>
+  <p class="white" style="font-weight:600;font-size:18px">שני שחקנים · שני טלפונים · מי ילחץ הכי מהר?</p>
+  <button class="btn" id="goInstr">יאללה, מתחילים!</button>
+</section>
+
+<!-- ============ 2. Instructions + photo ============ -->
+<section id="instr" class="screen bg">
+  <div class="card">
+    <h2>📸 צלמו את עכבר המחשב</h2>
+    <ul class="tips">
+      <li>הניחו את העכבר על משטח חלק ובהיר, כמו דף לבן.</li>
+      <li>צלמו מלמעלה, כשהעכבר ממלא את רוב התמונה.</li>
+      <li>אנחנו נגזור את העכבר מהרקע ונלביש אותו על מכונית מרוץ.</li>
+    </ul>
+    <button class="btn" id="shootBtn">📷 צלם את העכבר</button>
+    <div class="row">
+      <button class="btn ghost" style="color:var(--muted);background:#f1eeff" id="galleryBtn">בחירה מהגלריה</button>
+      <button class="btn ghost" style="color:var(--muted);background:#f1eeff" id="skipBtn">דלג, עכבר מצויר</button>
+    </div>
+    <input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
+    <input type="file" id="fileGal" accept="image/*" hidden>
+  </div>
+</section>
+
+<!-- ============ 3. Processing / preview ============ -->
+<section id="proc" class="screen bg">
+  <div class="card">
+    <h2 id="procTitle">מנקה את הרקע…</h2>
+    <div id="procWait"><div class="spinner"></div><p class="muted" id="procMsg">רגע אחד</p></div>
+    <div id="procDone" style="display:none">
+      <div class="preview" id="prevBox"></div>
+      <p class="muted">ככה העכבר שלכם ייראה במירוץ</p>
+      <button class="btn green" id="okPhoto">מעולה, ממשיכים</button>
+      <div class="row">
+        <button class="btn ghost" style="color:var(--muted);background:#f1eeff" id="retake">צלם שוב</button>
+        <button class="btn ghost" style="color:var(--muted);background:#f1eeff" id="simpleCut">נסה גזירה אחרת</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. Room ============ -->
+<section id="room" class="screen bg">
+  <div class="card" id="roomMenu">
+    <h2>🏁 מתחברים למירוץ</h2>
+    <p class="muted">שחקן אחד פותח חדר, השני מצטרף עם הקוד</p>
+    <button class="btn" id="createBtn">פתח חדר חדש</button>
+    <div class="sep">או</div>
+    <input class="codein" id="codeIn" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off">
+    <br><button class="btn alt" id="joinBtn">הצטרף לחדר</button>
+    <div class="err" id="roomErr"></div>
+    <button class="btn ghost" style="color:var(--muted);background:#f1eeff" id="botBtn">🤖 תרגול נגד המחשב</button>
+  </div>
+  <div class="card" id="roomWait" style="display:none">
+    <h2 id="waitTitle">החדר שלך</h2>
+    <div class="code" id="codeShow">----</div>
+    <p id="waitMsg">שלחו את הקוד לחבר. המירוץ יתחיל ברגע שהוא יצטרף.</p>
+    <button class="btn alt" id="shareBtn" style="display:none">שתף קישור לחבר</button>
+    <div class="spinner"></div>
+    <button class="btn ghost" style="color:var(--muted);background:#f1eeff" id="cancelWait">ביטול</button>
+  </div>
+</section>
+
+<!-- ============ 4b. AR setup (room creator) ============ -->
+<section id="arsetup" class="screen bg">
+  <div class="card">
+    <h2>💻 מסלול על הלפטופ</h2>
+    <ul class="tips">
+      <li>סגרו את הלפטופ והניחו אותו על השולחן.</li>
+      <li>הניחו את הטלפון יציב, נשען על כוס או מעמד, כך שכל המכסה נראה במצלמה.</li>
+      <li>לחצו על ארבע הפינות של המכסה, והמסלול ייבנה עליו.</li>
+      <li>אל תזיזו את הטלפון במהלך המירוץ. אם זז, יש כפתור לסימון מחדש.</li>
+    </ul>
+    <button class="btn" id="arCamBtn">📷 פתח מצלמה</button>
+    <br><button class="btn ghost" style="color:var(--muted);background:#f1eeff" id="arFlatBtn">בלי מצלמה, מסלול מצויר</button>
+    <div class="err" id="arErr"></div>
+  </div>
+</section>
+
+<!-- ============ 5. Game ============ -->
+<section id="game" class="screen">
+  <video id="cam" playsinline muted autoplay></video>
+  <canvas id="cv"></canvas>
+  <button id="remark">📐 סימון מחדש</button>
+  <div id="markOv">
+    <div class="msg" id="markMsg">לחצו על ארבע הפינות של מכסה הלפטופ</div>
+    <div class="row"><button class="btn ghost" id="markReset" style="background:rgba(31,22,64,.85);color:#fff">מחדש</button><button class="btn green" id="markOk" style="display:none">המסלול במקום, יוצאים!</button></div>
+  </div>
+  <div class="tap l" id="tapL">לחץ!</div>
+  <div class="tap r" id="tapR">לחץ!</div>
+  <div id="virusBtn"><span class="bug">🦠</span>virus<div id="virusBar"><i></i></div></div>
+  <div class="toast" id="toast"></div>
+  <div class="overlay" id="intro">
+    <div class="pair" id="introPair"></div>
+    <p class="white" style="font-weight:800;font-size:20px;margin-top:18px">הנה המתחרים!</p>
+  </div>
+  <div class="overlay" id="countOv"><div id="count"></div></div>
+  <div id="errWrap"><div class="stack" id="errStack"></div></div>
+</section>
+
+<div id="bsod">
+  <div class="face">:(</div>
+  <p>Your mouse ran into a problem and needs to restart. We're just collecting some error info, and then we'll restart for you.</p>
+  <p id="bsodPct">0% complete</p>
+  <p class="small">Stop code: MOUSE_LOST_THE_RACE<br>What failed: slow_fingers.sys</p>
+  <div class="heb">היריב הגיע ראשון. בפעם הבאה ללחוץ מהר יותר!</div>
+</div>
+<canvas id="confetti"></canvas>
+<section id="win" class="screen">
+  <div class="card"><div style="font-size:64px">🏆</div><h2 id="winTitle">ניצחת!</h2><p class="muted" id="winSub">העכבר שלך הגיע ראשון לקו הסיום</p></div>
+</section>
+<div class="endbtns" id="endBtns"><button class="btn green" id="againBtn">משחק חוזר</button><button class="btn ghost" id="exitBtn">יציאה</button></div>
+<div id="rotate"><div class="ph">📱</div><p>סובבו את הטלפון לאורך</p></div>
+
+<script>
+"use strict";
+/* =========================================================
+   Helpers & audio
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const Q = new URLSearchParams(location.search);
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id===id)); }
+let AC = null;
+function audio(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(AC && AC.state!=='running') AC.resume().catch(()=>{}); return AC; }
+let silentEl=null;
+function silentWavUrl(){ const n=4000, b=new ArrayBuffer(44+n*2), v=new DataView(b); let o=0;
+  const str=t=>{ for(const ch of t) v.setUint8(o++, ch.charCodeAt(0)); }, u32=x=>{ v.setUint32(o,x,true); o+=4; }, u16=x=>{ v.setUint16(o,x,true); o+=2; };
+  str('RIFF'); u32(36+n*2); str('WAVE'); str('fmt '); u32(16); u16(1); u16(1); u32(8000); u32(16000); u16(2); u16(16); str('data'); u32(n*2);
+  return URL.createObjectURL(new Blob([b],{type:'audio/wav'})); }
+function unlockAudio(){
+  audio();
+  // On iPhone, Web Audio is muted by the silent switch unless an <audio> element is playing:
+  try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(e){}
+  try{ if(!silentEl){ silentEl=new Audio(silentWavUrl()); silentEl.loop=true; silentEl.setAttribute('playsinline',''); }
+       if(silentEl.paused) silentEl.play().catch(()=>{}); }catch(e){}
+}
+for(const ev of ['pointerdown','touchend','click']) document.addEventListener(ev, unlockAudio, {passive:true, capture:true});
+// stop iOS double-tap / pinch zoom while hammering the buttons
+document.addEventListener('touchstart', e=>{ if(e.target.closest && e.target.closest('.tap,#virusBtn')) e.preventDefault(); }, {passive:false});
+document.addEventListener('touchend', e=>{ if(e.target.closest && e.target.closest('.tap,#virusBtn,#cv')) e.preventDefault(); }, {passive:false});
+document.addEventListener('dblclick', e=>e.preventDefault(), {passive:false});
+for(const ev of ['gesturestart','gesturechange']) document.addEventListener(ev, e=>e.preventDefault(), {passive:false});
+
+function clickSound(){
+  const ac = audio(); if(!ac) return; const t = ac.currentTime;
+  const len = Math.floor(ac.sampleRate*0.03), buf = ac.createBuffer(1,len,ac.sampleRate), d = buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/len, 6);
+  const src = ac.createBufferSource(); src.buffer = buf;
+  const bp = ac.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = 3200 + Math.random()*500; bp.Q.value = 1.2;
+  const g = ac.createGain(); g.gain.value = 0.9;
+  src.connect(bp).connect(g).connect(ac.destination); src.start(t);
+  const o = ac.createOscillator(), og = ac.createGain(); o.frequency.setValueAtTime(1800,t); o.frequency.exponentialRampToValueAtTime(600,t+0.012);
+  og.gain.setValueAtTime(0.25,t); og.gain.exponentialRampToValueAtTime(0.001,t+0.015);
+  o.connect(og).connect(ac.destination); o.start(t); o.stop(t+0.02);
+}
+function beep(freq, dur=0.18, type='square', vol=0.18){
+  const ac = audio(); if(!ac) return; const t = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t+dur+0.02);
+}
+function errorDing(){ beep(660,0.12,'triangle',0.3); setTimeout(()=>beep(440,0.25,'triangle',0.3),110); }
+/* A warm retro "computer starting up" chime (original synth, in the spirit of old PCs) */
+function startupChime(){
+  const ac = audio(); if(!ac) return; const t0 = ac.currentTime + 0.05;
+  const master = ac.createGain(); master.gain.value = 0.22; master.connect(ac.destination);
+  const delay = ac.createDelay(); delay.delayTime.value = 0.28; const fb = ac.createGain(); fb.gain.value = 0.35;
+  delay.connect(fb).connect(delay); delay.connect(master);
+  const note = (f, start, dur, vol, type='sine') => {
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t0+start); g.gain.exponentialRampToValueAtTime(vol, t0+start+0.08);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+start+dur);
+    o.connect(g); g.connect(master); g.connect(delay); o.start(t0+start); o.stop(t0+start+dur+0.05);
+  };
+  // pad chords
+  [[207.65,261.63,311.13,392.0],[155.56,233.08,311.13,392.0],[233.08,293.66,349.23,466.16]].forEach((ch,i)=>{
+    ch.forEach(f=>{ note(f, i*0.9, 2.6, 0.18, 'triangle'); note(f*2.003, i*0.9, 2.0, 0.05); });
+  });
+  // bell melody
+  [[622.25,0],[466.16,0.35],[415.30,0.7],[622.25,1.1],[466.16,1.45],[932.33,1.9]].forEach(([f,s])=>note(f,s,1.4,0.22));
+}
+
+/* =========================================================
+   Splash / instructions / photo
+   ========================================================= */
+$('goInstr').onclick = () => { audio(); show('instr'); preloadAI(); };
+$('shootBtn').onclick = () => $('fileCam').click();
+$('galleryBtn').onclick = () => $('fileGal').click();
+$('skipBtn').onclick = () => { myImg = drawDefaultMouse(); goRoom(); };
+$('fileCam').onchange = e => handleFile(e.target.files[0]);
+$('fileGal').onchange = e => handleFile(e.target.files[0]);
+$('retake').onclick = () => { show('instr'); };
+$('okPhoto').onclick = () => goRoom();
+$('simpleCut').onclick = async () => {
+  if(!lastSrc) return; procBusy('גוזר שוב…');
+  const res = altMode==='classic' ? centerCut(lastSrc) : classicCut(lastSrc);
+  altMode = altMode==='classic' ? 'center' : 'classic';
+  finishCut(res);
+};
+
+let myImg = null, lastSrc = null, altMode = 'classic';
+let aiMod = null, aiPromise = null;
+const AI_URL = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm';
+function preloadAI(){
+  if(aiPromise || Q.has('noai')) return aiPromise;
+  aiPromise = import(AI_URL).then(m => (aiMod = m)).catch(e => { console.warn('AI module failed', e); return null; });
+  return aiPromise;
+}
+function procBusy(msg){ show('proc'); $('procTitle').textContent='מנקה את הרקע…'; $('procWait').style.display=''; $('procDone').style.display='none'; $('procMsg').textContent=msg||'רגע אחד'; }
+
+async function handleFile(file){
+  if(!file) return;
+  procBusy('טוען תמונה…');
+  $('fileCam').value=''; $('fileGal').value='';
+  let img;
+  try{ img = await loadImage(URL.createObjectURL(file)); }
+  catch(e){ alert('לא הצלחנו לקרוא את התמונה, נסו שוב'); show('instr'); return; }
+  // downscale source
+  const S = 640, k = Math.min(1, S/Math.max(img.naturalWidth, img.naturalHeight));
+  const src = document.createElement('canvas'); src.width = Math.round(img.naturalWidth*k); src.height = Math.round(img.naturalHeight*k);
+  src.getContext('2d').drawImage(img, 0, 0, src.width, src.height);
+  lastSrc = src; altMode = 'classic';
+  let res = null;
+  const mod = await withTimeout(preloadAI(), 25000);
+  if(mod && mod.removeBackground){
+    try{
+      $('procMsg').textContent = 'הבינה המלאכותית גוזרת את העכבר… (בפעם הראשונה זה לוקח קצת יותר)';
+      const blob = await new Promise(r => src.toBlob(r, 'image/png'));
+      const out = await withTimeout(mod.removeBackground(blob, {
+        model:'isnet_quint8', output:{format:'image/png'},
+        progress:(key,cur,tot)=>{ if(tot) $('procMsg').textContent = 'מוריד את המודל… ' + Math.round(cur/tot*100) + '%'; }
+      }), 90000);
+      if(out){
+        const im = await loadImage(URL.createObjectURL(out));
+        const c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        res = postProcess(c);
+      }
+    }catch(e){ console.warn('AI cut failed', e); }
+  }
+  if(!res){ $('procMsg').textContent = 'גוזר…'; await sleep(30); res = classicCut(src); altMode = 'center'; }
+  finishCut(res);
+}
+function finishCut(c){
+  myImg = c;
+  $('procTitle').textContent = 'הנה העכבר שלך!';
+  const box = $('prevBox'); box.innerHTML = '';
+  const pc = document.createElement('canvas'); pc.width = 200; pc.height = 200;
+  drawCar(pc.getContext('2d'), 80, 118, 0, 120, '#8f5cff', c, '');
+  box.appendChild(pc);
+  $('procWait').style.display='none'; $('procDone').style.display='';
+}
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function withTimeout(p, ms){ return Promise.race([Promise.resolve(p).catch(()=>null), sleep(ms).then(()=>null)]); }
+function loadImage(url){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; }); }
+
+/* --- classical background removal: flood fill from the borders --- */
+function classicCut(src){
+  const w = src.width, h = src.height, ctx = src.getContext('2d');
+  const id = ctx.getImageData(0,0,w,h), d = id.data, N = w*h;
+  // border colour statistics
+  const rs=[],gs=[],bs=[]; const B = Math.max(3, Math.round(Math.min(w,h)*0.02));
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    if(x>=B && y>=B && x<w-B && y<h-B) continue;
+    if((x+y)%2) continue; const i=(y*w+x)*4; rs.push(d[i]); gs.push(d[i+1]); bs.push(d[i+2]);
+  }
+  const med = a => { a.sort((p,q)=>p-q); return a[a.length>>1]; };
+  const mr=med(rs), mg=med(gs), mb=med(bs);
+  const dist = i => Math.abs(d[i]-mr)+Math.abs(d[i+1]-mg)+Math.abs(d[i+2]-mb);
+  let spread=0, cnt=0;
+  for(let y=0;y<h;y+=2) for(let x=0;x<w;x+=2){ if(x>=B&&y>=B&&x<w-B&&y<h-B) continue; spread+=dist((y*w+x)*4); cnt++; }
+  spread/=cnt; const T = Math.min(150, Math.max(55, spread*2.6));
+  const bg = new Uint8Array(N), stack = new Int32Array(N); let sp=0;
+  const push = p => { if(!bg[p]){ bg[p]=1; stack[sp++]=p; } };
+  for(let x=0;x<w;x++){ if(dist(x*4)<T) push(x); const p=(h-1)*w+x; if(dist(p*4)<T) push(p); }
+  for(let y=0;y<h;y++){ const p=y*w; if(dist(p*4)<T) push(p); const q=p+w-1; if(dist(q*4)<T) push(q); }
+  while(sp){
+    const p = stack[--sp], x = p%w, y = (p/w)|0, ip = p*4;
+    const nb = [x>0?p-1:-1, x<w-1?p+1:-1, y>0?p-w:-1, y<h-1?p+w:-1];
+    for(const q of nb){ if(q<0||bg[q]) continue; const iq=q*4;
+      const dq = dist(iq), step = Math.abs(d[iq]-d[ip])+Math.abs(d[iq+1]-d[ip+1])+Math.abs(d[iq+2]-d[ip+2]);
+      if(dq < T || (step < 14 && dq < T*1.8)) push(q);
+    }
+  }
+  const fg = new Uint8Array(N); for(let i=0;i<N;i++) fg[i] = bg[i]?0:1;
+  const mask = largestComponent(fg, w, h);
+  let area=0; for(let i=0;i<N;i++) area+=mask[i];
+  if(area < N*0.02 || area > N*0.92) return centerCut(src);
+  return applyMask(src, mask);
+}
+function largestComponent(fg, w, h){
+  const N=w*h, lab = new Int32Array(N), stack = new Int32Array(N); let best=0, bestSize=0, L=0;
+  for(let s=0;s<N;s++){ if(!fg[s]||lab[s]) continue; L++; let sp=0, size=0; stack[sp++]=s; lab[s]=L;
+    while(sp){ const p=stack[--sp]; size++; const x=p%w;
+      if(x>0&&fg[p-1]&&!lab[p-1]){lab[p-1]=L;stack[sp++]=p-1;}
+      if(x<w-1&&fg[p+1]&&!lab[p+1]){lab[p+1]=L;stack[sp++]=p+1;}
+      if(p>=w&&fg[p-w]&&!lab[p-w]){lab[p-w]=L;stack[sp++]=p-w;}
+      if(p<N-w&&fg[p+w]&&!lab[p+w]){lab[p+w]=L;stack[sp++]=p+w;} }
+    if(size>bestSize){bestSize=size;best=L;} }
+  const m = new Uint8Array(N); for(let i=0;i<N;i++) m[i] = lab[i]===best?1:0;
+  // fill holes: anything not reachable from the border through non-mask is inside
+  const out = new Uint8Array(N); let sp=0;
+  const pushO = p => { if(!m[p] && !out[p]){ out[p]=1; stack[sp++]=p; } };
+  for(let x=0;x<w;x++){ pushO(x); pushO((h-1)*w+x); } for(let y=0;y<h;y++){ pushO(y*w); pushO(y*w+w-1); }
+  while(sp){ const p=stack[--sp], x=p%w; if(x>0)pushO(p-1); if(x<w-1)pushO(p+1); if(p>=w)pushO(p-w); if(p<N-w)pushO(p+w); }
+  for(let i=0;i<N;i++) m[i] = out[i]?0:1;
+  return m;
+}
+function applyMask(src, mask){
+  const w=src.width, h=src.height, c=document.createElement('canvas'); c.width=w; c.height=h;
+  const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.drawImage(src,0,0); const id=ctx.getImageData(0,0,w,h);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){ // soft edge: 3x3 average
+    let s=0,n=0; for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const xx=x+dx, yy=y+dy; if(xx<0||yy<0||xx>=w||yy>=h) continue; s+=mask[yy*w+xx]; n++; }
+    id.data[(y*w+x)*4+3] = Math.round(255*s/n);
+  }
+  ctx.putImageData(id,0,0);
+  return postProcess(c);
+}
+function centerCut(src){
+  const w=src.width,h=src.height,c=document.createElement('canvas'); c.width=w;c.height=h; const ctx=c.getContext('2d');
+  ctx.save(); ctx.beginPath(); ctx.ellipse(w/2,h/2,w*0.34,h*0.4,0,0,Math.PI*2); ctx.clip(); ctx.drawImage(src,0,0); ctx.restore();
+  return postProcess(c);
+}
+/* rotate so the long axis is vertical, crop to content, scale down */
+function postProcess(c){
+  const w=c.width,h=c.height, d=c.getContext('2d').getImageData(0,0,w,h).data;
+  let n=0,sx=0,sy=0;
+  for(let y=0;y<h;y+=2) for(let x=0;x<w;x+=2) if(d[(y*w+x)*4+3]>128){n++;sx+=x;sy+=y;}
+  if(n<20) return null;
+  const mx=sx/n,my=sy/n; let cxx=0,cyy=0,cxy=0;
+  for(let y=0;y<h;y+=2) for(let x=0;x<w;x+=2) if(d[(y*w+x)*4+3]>128){const dx=x-mx,dy=y-my;cxx+=dx*dx;cyy+=dy*dy;cxy+=dx*dy;}
+  const ang = 0.5*Math.atan2(2*cxy, cxx-cyy); // major axis angle from x-axis
+  const rot = Math.PI/2 - ang;               // make it vertical
+  const D = Math.ceil(Math.hypot(w,h)), r=document.createElement('canvas'); r.width=D; r.height=D;
+  const rc=r.getContext('2d'); rc.translate(D/2,D/2); rc.rotate(rot); rc.drawImage(c,-mx,-my);
+  const rd=rc.getImageData(0,0,D,D).data; let x0=D,y0=D,x1=0,y1=0;
+  for(let y=0;y<D;y++) for(let x=0;x<D;x++) if(rd[(y*D+x)*4+3]>40){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; }
+  if(x1<=x0||y1<=y0) return null;
+  const cw=x1-x0+1, ch=y1-y0+1, k=Math.min(1, 200/Math.max(cw,ch));
+  const o=document.createElement('canvas'); o.width=Math.max(1,Math.round(cw*k)); o.height=Math.max(1,Math.round(ch*k));
+  o.getContext('2d').drawImage(r,x0,y0,cw,ch,0,0,o.width,o.height);
+  return o;
+}
+function drawDefaultMouse(){
+  const c=document.createElement('canvas'); c.width=110; c.height=170; const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,110,0); g.addColorStop(0,'#5a5f6b'); g.addColorStop(.5,'#9aa0ad'); g.addColorStop(1,'#4a4f5a');
+  x.fillStyle=g; x.beginPath(); x.ellipse(55,88,50,80,0,0,Math.PI*2); x.fill();
+  x.strokeStyle='#2c2f36'; x.lineWidth=3; x.beginPath(); x.moveTo(55,10); x.lineTo(55,70); x.stroke();
+  x.beginPath(); x.moveTo(8,70); x.quadraticCurveTo(55,82,102,70); x.stroke();
+  x.fillStyle='#2c2f36'; x.beginPath(); x.roundRect ? x.roundRect(48,28,14,26,7) : x.rect(48,28,14,26); x.fill();
+  x.fillStyle='rgba(255,255,255,.25)'; x.beginPath(); x.ellipse(36,110,10,30,0,0,Math.PI*2); x.fill();
+  return c;
+}
+
+/* =========================================================
+   Car renderer: the photographed mouse rides a race car body
+   ========================================================= */
+function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function shade(hex, f){ const n=parseInt(hex.slice(1),16); let r=n>>16,g=(n>>8)&255,b=n&255;
+  const m = f<0 ? 0 : 255, a=Math.abs(f); r=Math.round(r+(m-r)*a); g=Math.round(g+(m-g)*a); b=Math.round(b+(m-b)*a);
+  return '#'+((1<<24)|(r<<16)|(g<<8)|b).toString(16).slice(1); }
+/* heading: radians, 0 = pointing up */
+function drawCar(ctx, x, y, heading, L, color, img, num, glow){
+  // L = length of the mouse on screen. The mouse rotates with the track; the flag pole stays upright.
+  const W = L*0.62;
+  ctx.save(); ctx.translate(x,y); ctx.rotate(heading);
+  // soft ground shadow
+  ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(L*0.05,L*0.07,W*0.52,L*0.5,0,0,Math.PI*2); ctx.fill();
+  if(img){
+    const k=Math.min(W/img.width, L/img.height), iw=img.width*k, ih=img.height*k;
+    if(glow){ ctx.shadowColor=glow; ctx.shadowBlur=Math.max(4,L*0.18); }
+    ctx.drawImage(img,-iw/2,-ih/2,iw,ih);
+    ctx.shadowColor='transparent'; ctx.shadowBlur=0;
+  }
+  ctx.restore();
+  // racing flag on a pole, planted at the back of the mouse
+  const bx = x - Math.sin(heading)*L*0.32, by = y + Math.cos(heading)*L*0.32;
+  const ph = L*0.95, fw = L*0.62, fh = L*0.4, t = performance.now()/180;
+  ctx.save();
+  ctx.strokeStyle='#3e2723'; ctx.lineWidth=Math.max(2,L*0.05); ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx,by-ph); ctx.stroke();
+  ctx.fillStyle='#ffd54f'; ctx.beginPath(); ctx.arc(bx,by-ph,Math.max(2,L*0.05),0,7); ctx.fill();
+  // waving cloth
+  const top=by-ph+L*0.04, steps=10;
+  ctx.beginPath(); ctx.moveTo(bx,top);
+  for(let i=1;i<=steps;i++){ const u=i/steps; ctx.lineTo(bx+u*fw, top+Math.sin(t+u*3)*fh*0.12*u); }
+  for(let i=steps;i>=0;i--){ const u=i/steps; ctx.lineTo(bx+u*fw, top+fh+Math.sin(t+u*3)*fh*0.12*u); }
+  ctx.closePath();
+  ctx.fillStyle=color; ctx.fill(); ctx.strokeStyle='#1f1640'; ctx.lineWidth=Math.max(1,L*0.025); ctx.stroke();
+  // checkered strip on the flag's edge
+  const cs=fh/4;
+  for(let r=0;r<4;r++) for(let c2=0;c2<2;c2++){ const u=(fw-cs*2+c2*cs)/fw; ctx.fillStyle=(r+c2)%2?'#fff':'#111';
+    ctx.fillRect(bx+fw-cs*2+c2*cs, top+r*cs+Math.sin(t+u*3)*fh*0.12*u, cs, cs); }
+  if(num){
+    ctx.fillStyle='#fff'; ctx.font='900 '+Math.round(fh*0.7)+'px Rubik, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.lineWidth=Math.max(2,L*0.04); ctx.strokeStyle='#1f1640';
+    const nx=bx+(fw-cs*2)/2, ny=top+fh/2+Math.sin(t+1.2)*fh*0.06;
+    ctx.strokeText(num,nx,ny); ctx.fillText(num,nx,ny);
+  }
+  ctx.restore();
+}
+
+/* =========================================================
+   Networking (PeerJS: two phones, one room code)
+   ========================================================= */
+const COLORS = ['#e53935', '#fdd835'];       // player 1 red, player 2 yellow
+const PREFIX = 'mouserace-v1-';
+let peer=null, conn=null, role=null, me=0, botMode=false;
+let oppImg=null, imgBuf={}, guestReady=false;
+
+function goRoom(){
+  show('room'); $('roomMenu').style.display=''; $('roomWait').style.display='none'; $('roomErr').textContent='';
+  const r = Q.get('room'); if(r && /^\d{4}$/.test(r)){ $('codeIn').value=r; }
+}
+function peerOpts(){
+  const o = {debug:1};
+  if(Q.get('peerhost')){ o.host=Q.get('peerhost'); o.port=+Q.get('peerport')||9000; o.path='/'; o.secure=false; }
+  return o;
+}
+function cleanupNet(){ try{ conn && conn.close(); }catch(e){} try{ peer && peer.destroy(); }catch(e){} peer=null; conn=null; }
+
+$('createBtn').onclick = () => {
+  if(!window.Peer){ $('roomErr').textContent='אין חיבור לשרת המשחק, בדקו אינטרנט'; return; }
+  cleanupNet(); stopCam(); AR.on=false; AR.quad=null; AR.called=false; botMode=false; role='host'; me=0; oppImg=null; guestReady=false; imgBuf={};
+  $('roomMenu').style.display='none'; $('roomWait').style.display=''; $('waitTitle').textContent='החדר שלך';
+  $('waitMsg').textContent='שלחו את הקוד לחבר. המירוץ יתחיל ברגע שהוא יצטרף.';
+  $('shareBtn').style.display = navigator.share ? '' : 'none';
+  const tryOpen = (n) => {
+    const code = String(Math.floor(1000+Math.random()*9000));
+    $('codeShow').textContent='····';
+    peer = new Peer(PREFIX+code, peerOpts());
+    peer.on('open', () => { $('codeShow').textContent=code; $('shareBtn').dataset.code=code; });
+    peer.on('error', e => {
+      if(e.type==='unavailable-id' && n<5){ peer.destroy(); tryOpen(n+1); }
+      else { $('waitMsg').textContent='בעיה בחיבור: '+e.type; }
+    });
+    peer.on('connection', c => {
+      if(conn && conn.open){ c.on('open',()=>{ c.send({t:'full'}); setTimeout(()=>c.close(),300); }); return; }
+      conn = c; wireConn();
+    });
+  };
+  tryOpen(0);
+};
+$('shareBtn').onclick = () => {
+  const code = $('shareBtn').dataset.code; if(!code) return;
+  const u = location.origin + location.pathname + '?room=' + code;
+  navigator.share({title:'מירוץ עכברים', text:'בוא למירוץ עכברים! קוד החדר: '+code, url:u}).catch(()=>{});
+};
+$('joinBtn').onclick = () => {
+  const code = $('codeIn').value.replace(/\D/g,'');
+  if(code.length!==4){ $('roomErr').textContent='הקוד צריך להיות 4 ספרות'; return; }
+  if(!window.Peer){ $('roomErr').textContent='אין חיבור לשרת המשחק, בדקו אינטרנט'; return; }
+  cleanupNet(); stopCam(); AR.on=false; AR.quad=null; botMode=false; role='guest'; me=1; oppImg=null; imgBuf={};
+  $('roomMenu').style.display='none'; $('roomWait').style.display=''; $('waitTitle').textContent='מצטרף לחדר';
+  $('codeShow').textContent=code; $('waitMsg').textContent='מתחבר…'; $('shareBtn').style.display='none';
+  peer = new Peer(peerOpts());
+  peer.on('open', () => { conn = peer.connect(PREFIX+code, {reliable:true, serialization:'json'}); wireConn(); });
+  peer.on('call', call => { call.answer(); call.on('stream', st => { const v=$('cam'); v.srcObject=st; v.play().catch(()=>{}); }); });
+  peer.on('error', e => {
+    goRoom();
+    $('roomErr').textContent = e.type==='peer-unavailable' ? 'לא נמצא חדר עם הקוד הזה' : 'בעיה בחיבור: '+e.type;
+  });
+};
+$('cancelWait').onclick = () => { cleanupNet(); goRoom(); };
+$('botBtn').onclick = () => { cleanupNet(); stopCam(); AR.on=false; AR.quad=null; botMode=true; role='host'; me=0; oppImg=drawDefaultMouse(); hostSetup(); };
+
+function wireConn(){
+  conn.on('open', () => { $('waitMsg').textContent='מחובר! מחליפים עכברים…'; sendImage(); });
+  conn.on('data', onMsg);
+  conn.on('close', () => { if(!leaving) netLost(); });
+  conn.on('error', () => { if(!leaving) netLost(); });
+}
+function send(o){ if(botMode) return; try{ conn && conn.open && conn.send(o); }catch(e){} }
+function sendImage(){
+  const s = (myImg||drawDefaultMouse()).toDataURL('image/png'), CH = 12000, n = Math.ceil(s.length/CH);
+  for(let i=0;i<n;i++) send({t:'img', i, n, d:s.slice(i*CH,(i+1)*CH)});
+}
+async function onMsg(m){
+  if(!m || typeof m!=='object') return;
+  switch(m.t){
+    case 'full': goRoom(); $('roomErr').textContent='החדר כבר מלא'; break;
+    case 'img': {
+      imgBuf[m.i]=m.d;
+      if(Object.keys(imgBuf).length===m.n){
+        let s=''; for(let i=0;i<m.n;i++) s+=imgBuf[i]; imgBuf={};
+        if(!s.startsWith('data:image/png;base64,')) return;
+        try{ const im = await loadImage(s); const c=document.createElement('canvas'); c.width=Math.min(220,im.width); c.height=Math.round(im.height*c.width/im.width);
+          c.getContext('2d').drawImage(im,0,0,c.width,c.height); oppImg=c; }catch(e){ oppImg=drawDefaultMouse(); }
+        if(role==='guest'){ send({t:'ready'}); $('waitMsg').textContent='מחוברות! מחכים שפותחת החדר תסמן את המסלול על הלפטופ…'; } else if(guestReady) hostSetup();
+      }
+      break;
+    }
+    case 'ready': guestReady=true; if(oppImg) hostSetup(); break;
+    case 'ar': if(role==='guest'){ AR.on=!!m.q; AR.quad=m.q||null; arTexDirty=true; } break;
+    case 'start': if(role==='guest') beginRace(); break;
+    case 'pos': if(typeof m.p==='number') S.target[1-me] = Math.max(0,Math.min(1,m.p)); break;
+    case 'avail': if(role==='guest') setVirusAvail(!!m.v); break;
+    case 'claim': if(role==='host') hostClaim(1); break;
+    case 'virus': if(role==='guest') applyVirus(m.target); break;
+    case 'fin': if(role==='host') hostFinish(1); break;
+    case 'result': if(role==='guest') showResult(m.w); break;
+    case 'again': if(role==='host'){ wantAgain[1]=true; tryRematch(); } break;
+  }
+}
+let leaving=false;
+function netLost(){
+  if(S.phase==='idle') { goRoom(); $('roomErr').textContent='החיבור נותק'; return; }
+  toast('היריב התנתק 😕', 4000);
+  $('endBtns').classList.add('on'); $('againBtn').style.display='none';
+}
+
+/* =========================================================
+   Game state
+   ========================================================= */
+const TUNE = {
+  boost: 0.0034,      // progress gained in speed per tap
+  drag: 1.6,          // speed decay per second
+  vmax: 0.0175,       // top speed (fraction of track per second) -> fastest race ~ 1 minute
+  close: 0.07,        // how close (fraction of track) for the virus button
+  virusShow: 1500,    // button disappears after 1.5s
+  virusGap: 1500,     // and can return 1.5s later
+  freezeMs: 1000
+};
+const S = { phase:'idle', prog:[0,0], target:[0,0], vel:0, frozen:false, startAt:0, goAt:0, winner:null,
+  virusAvail:false, availSince:0, availUntil:0, nextAvail:0, lastSend:0, bot:null, finSent:false };
+let wantAgain=[false,false];
+
+function startMatch(){
+  // host only (or bot mode): kick off both sides
+  send({t:'start'}); beginRace();
+}
+function beginRace(){
+  hideEnd();
+  Object.assign(S, {phase:'intro', prog:[0,0], target:[0,0], vel:0, frozen:false, winner:null, virusAvail:false,
+    nextAvail:0, finSent:false, introAt:performance.now()});
+  wantAgain=[false,false];
+  $('errWrap').classList.remove('on');
+  if(botMode) S.bot = {nextTap:0, rate:5.2+Math.random()*1.2, frozenUntil:0, claimAt:0, vel:0};
+  show('game'); resize();
+  // intro: show both mice side by side; my mouse on my lane side
+  const pair = $('introPair'); pair.innerHTML='';
+  const mk = (who) => { const d=document.createElement('div'); d.className='who'; const c=document.createElement('canvas'); c.width=340; c.height=420;
+    drawCar(c.getContext('2d'),130,250,0,250,COLORS[who],who===me?myImg:oppImg,String(who+1)); d.appendChild(c);
+    const t=document.createElement('span'); t.textContent = who===me ? 'אני' : 'היריב'; d.appendChild(t); return d; };
+  // player 1 (red) is the right lane, player 2 (yellow) the left lane
+  const vs=document.createElement('div'); vs.className='vs'; vs.textContent='VS';
+  pair.append(mk(1), vs, mk(0));
+  $('intro').classList.add('on');
+  setTimeout(()=>{ $('intro').classList.remove('on'); countdown(); }, 2600);
+}
+function countdown(){
+  S.phase='count'; const el=$('count'); $('countOv').classList.add('on');
+  const steps=['3','2','1','GO!'];
+  steps.forEach((s,i)=>setTimeout(()=>{
+    el.textContent=s; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+    beep(i<3?520:1040, i<3?0.18:0.4, 'square', 0.16);
+    if(i===3){ S.phase='race'; S.goAt=performance.now(); setTimeout(()=>$('countOv').classList.remove('on'),900); }
+  }, i*1000));
+}
+function myTap(e){
+  if(e){ e.preventDefault(); const el=e.currentTarget; el.classList.add('hit'); setTimeout(()=>el.classList.remove('hit'),70); }
+  clickSound();
+  if(S.phase!=='race' || S.frozen || S.winner!==null) return;
+  S.vel = Math.min(TUNE.vmax, S.vel + TUNE.boost);
+}
+$('tapL').addEventListener('pointerdown', myTap);
+$('tapR').addEventListener('pointerdown', myTap);
+document.addEventListener('keydown', e=>{ if(e.code==='Space' && !e.repeat && S.phase==='race') myTap(); if(e.key==='v' && $('virusBtn').classList.contains('on')) pressVirus(); });
+
+/* ---- virus ---- */
+$('virusBtn').addEventListener('pointerdown', e=>{ e.preventDefault(); pressVirus(); });
+function pressVirus(){
+  if(!S.virusAvail) return; clickSound();
+  setVirusAvail(false);
+  if(role==='host') hostClaim(me); else send({t:'claim'});
+}
+function setVirusAvail(v){
+  S.virusAvail=v; $('virusBtn').classList.toggle('on', v && S.winner===null);
+  if(v){ S.availSince=performance.now(); const bar=$('virusBar').firstElementChild; bar.style.transition='none'; bar.style.width='100%';
+    void bar.offsetWidth; bar.style.transition='width '+TUNE.virusShow+'ms linear'; bar.style.width='0%'; }
+}
+function hostClaim(by){
+  if(!S.hostAvail) return;
+  S.hostAvail=false; S.nextAvail=performance.now()+TUNE.virusGap+TUNE.freezeMs;
+  setVirusAvail(false); send({t:'avail', v:false});
+  const target = 1-by;
+  send({t:'virus', target});
+  applyVirus(target);
+}
+function applyVirus(target){
+  setVirusAvail(false);
+  if(target===me){
+    S.frozen=true; S.vel=0; errorDing(); openError();
+  } else {
+    toast('🦠 שלחת וירוס ליריב!', 1600);
+    if(botMode){ S.bot.frozenUntil = performance.now() + TUNE.freezeMs + 500 + Math.random()*700; S.bot.vel=0; }
+  }
+}
+function openError(){
+  const st=$('errStack'); st.innerHTML='';
+  const N=6;
+  for(let i=0;i<N;i++){
+    const w=document.createElement('div'); w.className='win'+(i===N-1?' big':'');
+    w.style.top=(i*16)+'px'; w.style.left=(i*8 - 20)+'px';
+    w.innerHTML='<div class="bar"><span>Error !</span><button class="x'+(i===N-1?' hide':'')+'">✕</button></div>'+
+      '<div class="body"><div class="icon">✕</div><div>Random Error just to annoy you.</div></div><div class="okrow"><span class="ok">OK</span></div>';
+    st.appendChild(w);
+  }
+  $('errWrap').classList.add('on');
+  const x = st.lastElementChild.querySelector('.x');
+  setTimeout(()=>{ x.classList.remove('hide'); }, TUNE.freezeMs);
+  x.addEventListener('pointerdown', e=>{ e.preventDefault(); if(x.classList.contains('hide')) return; closeError(); });
+}
+function closeError(){ $('errWrap').classList.remove('on'); S.frozen=false; clickSound(); }
+
+/* ---- finish ---- */
+function hostFinish(who){
+  if(S.winner!==null) return;
+  send({t:'result', w:who}); showResult(who);
+}
+function showResult(w){
+  if(S.winner!==null) return;
+  S.winner=w; S.phase='done'; setVirusAvail(false); $('errWrap').classList.remove('on');
+  if(w===me){ $('winTitle').textContent='ניצחת! 🎉'; show('game'); $('win').classList.add('on'); confetti(COLORS[me]); beep(784,0.15,'square',0.15); setTimeout(()=>beep(1046,0.4,'square',0.15),160); }
+  else { setTimeout(showBSOD, 700); }
+  setTimeout(()=>{ $('endBtns').classList.add('on'); $('againBtn').style.display=''; $('againBtn').textContent='משחק חוזר'; }, w===me?1500:3500);
+}
+function showBSOD(){
+  $('bsod').classList.add('on'); startupChime();
+  let p=0; const el=$('bsodPct'); el.textContent='0% complete';
+  const iv=setInterval(()=>{ if(!$('bsod').classList.contains('on')){clearInterval(iv);return;} p=Math.min(100,p+Math.ceil(Math.random()*9)); el.textContent=p+'% complete'; if(p>=100) clearInterval(iv); }, 260);
+}
+function hideEnd(){ $('bsod').classList.remove('on'); $('win').classList.remove('on'); $('endBtns').classList.remove('on'); stopConfetti(); }
+$('againBtn').onclick = () => {
+  $('againBtn').textContent='מחכה ליריב…';
+  if(botMode){ startMatch(); return; }
+  if(role==='host'){ wantAgain[0]=true; tryRematch(); } else send({t:'again'});
+};
+function tryRematch(){ if(wantAgain[0] && wantAgain[1]) startMatch(); else if(wantAgain[1]) toast('היריב רוצה משחק חוזר!', 2500); }
+$('exitBtn').onclick = () => { stopCam(); AR.on=false; leaving=true; cleanupNet(); leaving=false; hideEnd(); S.phase='idle'; show('splash'); };
+
+let toastT=0;
+function toast(msg, ms){ const t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'), ms||1500); }
+
+/* =========================================================
+   Track geometry (from the sketch, rotated to climb bottom -> top)
+   ========================================================= */
+// cleaned-up points of the hand sketch: x = progress direction, y = sideways
+const SKETCH = [[0,570],[412,570],[412,270],[866,270],[866,1025],[1196,1025],[1196,481],[1650,481],[1650,1220],[2000,1220]];
+const cv=$('cv'), ctx=cv.getContext('2d');
+let GW=0, GH=0, VW=0, VH=0, WH=0, camY=0, DPR=1, ROAD=60, center=[], lanes=[[],[]], staticLayer=null, carLen=40;
+
+function resize(){
+  DPR=Math.min(2.5, window.devicePixelRatio||1); VW=innerWidth; VH=innerHeight;
+  cv.width=Math.round(VW*DPR); cv.height=Math.round(VH*DPR);
+  $('game').classList.toggle('ar', AR.on);
+  if(AR.on){ buildArGeom(); return; }
+  const top = 70;
+  const bottom = 150;
+  ROAD = Math.max(56, Math.min(110, VW*0.19));
+  const left = ROAD/2+10, right = VW-ROAD/2-10;
+  // the world is taller than the screen; the camera scrolls up with the race
+  WH = Math.round(VH + Math.max(0, (VH-top-bottom)*0.7));
+  const yTop = top + ROAD*0.8, yBot = WH - bottom - ROAD*0.2;
+  camY = WH - VH; GW = VW; GH = WH;
+  const minY=270, maxY=1220;
+  center = SKETCH.map(([x,y]) => [ left + (y-minY)/(maxY-minY)*(right-left), yBot - x/2000*(yBot-yTop) ]);
+  lanes = [ offsetPath(center, ROAD*0.25), offsetPath(center, -ROAD*0.25) ]; // player1 right lane, player2 left lane
+  lanes.forEach(l=>l.len=measure(l));
+  carLen = ROAD*0.74;
+  buildStatic();
+}
+window.addEventListener('resize', ()=>{ if($('game').classList.contains('on')) resize(); });
+function offsetPath(P, d){
+  const out=[];
+  for(let i=0;i<P.length;i++){
+    const a=P[Math.max(0,i-1)], b=P[i], c=P[Math.min(P.length-1,i+1)];
+    const n1 = i>0 ? normR(a,b) : normR(b,c), n2 = i<P.length-1 ? normR(b,c) : normR(a,b);
+    let mx=n1[0]+n2[0], my=n1[1]+n2[1]; const ml=Math.hypot(mx,my)||1; mx/=ml; my/=ml;
+    const k = d / (mx*n1[0]+my*n1[1]);
+    out.push([b[0]+mx*k, b[1]+my*k]);
+  }
+  return out;
+}
+function normR(a,b){ const dx=b[0]-a[0], dy=b[1]-a[1], l=Math.hypot(dx,dy)||1; return [-dy/l, dx/l]; } // right of travel (screen coords)
+function measure(l){ let s=0; l.cum=[0]; for(let i=1;i<l.length;i++){ s+=Math.hypot(l[i][0]-l[i-1][0], l[i][1]-l[i-1][1]); l.cum.push(s); } return s; }
+function pointAt(l, s){
+  s=Math.max(0,Math.min(l.len,s));
+  let i=1; while(i<l.length-1 && l.cum[i]<s) i++;
+  const a=l[i-1], b=l[i], t=(s-l.cum[i-1])/((l.cum[i]-l.cum[i-1])||1);
+  return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];
+}
+function poseAt(lane, p){
+  const l=lanes[lane], s=p*l.len, e=Math.max(8, carLen*0.55);
+  const a=pointAt(l,s-e), b=pointAt(l,s+e), c=pointAt(l,s);
+  return {x:c[0], y:c[1], h:Math.atan2(b[0]-a[0], -(b[1]-a[1]))};
+}
+
+function strokePath(g, P, ext0, ext1){
+  g.beginPath();
+  const a=P[0], b=P[1], la=Math.hypot(b[0]-a[0],b[1]-a[1]);
+  g.moveTo(a[0]-(b[0]-a[0])/la*ext0, a[1]-(b[1]-a[1])/la*ext0);
+  for(let i=1;i<P.length-1;i++) g.lineTo(P[i][0],P[i][1]);
+  const y=P[P.length-2], z=P[P.length-1], lz=Math.hypot(z[0]-y[0],z[1]-y[1]);
+  g.lineTo(z[0]+(z[0]-y[0])/lz*ext1, z[1]+(z[1]-y[1])/lz*ext1);
+}
+function buildStatic(){
+  const c=document.createElement('canvas'); c.width=cv.width; c.height=Math.round(WH*DPR); const g=c.getContext('2d'); g.scale(DPR,DPR);
+  // grass
+  const bg=g.createLinearGradient(0,0,0,WH); bg.addColorStop(0,'#7fd36b'); bg.addColorStop(1,'#4fae4c'); g.fillStyle=bg; g.fillRect(0,0,VW,WH);
+  let seed=7; const rnd=()=>{ seed=(seed*16807)%2147483647; return seed/2147483647; };
+  for(let i=0;i<380;i++){ g.fillStyle = rnd()<0.5?'rgba(255,255,255,.10)':'rgba(30,90,30,.12)'; g.beginPath(); g.arc(rnd()*VW, rnd()*WH, 1+rnd()*3, 0, 7); g.fill(); }
+  drawRoad(g);
+  // decorations: cheese & trees away from the road
+  const near=(x,y)=>{ for(let i=1;i<center.length;i++){ if(distSeg([x,y],center[i-1],center[i]) < ROAD*0.9) return true; } return false; };
+  let placed=0, tries=0;
+  while(placed<22 && tries<500){ tries++; const x=20+rnd()*(VW-40), y=80+rnd()*(WH-200); if(near(x,y)) continue;
+    if(rnd()<0.45) drawCheese(g,x,y,ROAD*0.32+rnd()*6); else drawTree(g,x,y,ROAD*0.28+rnd()*8); placed++; }
+  staticLayer=c;
+}
+function drawRoad(g){
+  // curbs (red/white) and asphalt
+  g.lineJoin='round'; g.lineCap='butt';
+  strokePath(g,center,ROAD*0.5,ROAD*0.3); g.strokeStyle='rgba(0,0,0,.18)'; g.lineWidth=ROAD+16; g.save(); g.translate(0,4); g.stroke(); g.restore();
+  strokePath(g,center,ROAD*0.5,ROAD*0.3); g.strokeStyle='#e53935'; g.lineWidth=ROAD+12; g.stroke();
+  g.setLineDash([ROAD*0.16,ROAD*0.16]); g.strokeStyle='#fff'; g.stroke(); g.setLineDash([]);
+  strokePath(g,center,ROAD*0.5,ROAD*0.3); g.strokeStyle='#4a4a5a'; g.lineWidth=ROAD; g.stroke();
+  strokePath(g,center,ROAD*0.5,ROAD*0.3); g.strokeStyle='rgba(255,255,255,.05)'; g.lineWidth=ROAD*0.6; g.stroke();
+  // centre line
+  strokePath(g,center,0,0); g.setLineDash([ROAD*0.22,ROAD*0.18]); g.strokeStyle='#ffd54f'; g.lineWidth=Math.max(3,ROAD*0.04); g.stroke(); g.setLineDash([]);
+  // start line & finish line
+  const P0=center[0], P1=center[1], Pn=center[center.length-1], Pm=center[center.length-2];
+  drawLineAcross(g, P0, P1, 'start'); drawLineAcross(g, Pn, Pm, 'finish');
+}
+function distSeg(p,a,b){ const dx=b[0]-a[0],dy=b[1]-a[1]; const t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy||1))); return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy); }
+function drawLineAcross(g, P, Q, kind){
+  const dx=Q[0]-P[0], dy=Q[1]-P[1], l=Math.hypot(dx,dy), ux=dx/l, uy=dy/l, nx=-uy, ny=ux;
+  g.save(); g.translate(P[0],P[1]); g.rotate(Math.atan2(ny,nx));
+  const W=ROAD, cells=8, cs=W/cells;
+  if(kind==='finish'){
+    for(let r=0;r<2;r++) for(let i=0;i<cells;i++){ g.fillStyle=(i+r)%2?'#fff':'#111'; g.fillRect(-W/2+i*cs, -cs + r*cs, cs, cs); }
+  } else { g.fillStyle='#fff'; g.fillRect(-W/2,-3,W,6); }
+  g.restore();
+  // flag + label beside the road
+  const sc = ROAD/74; let sgn = 1;
+  let fx = P[0] + nx*(ROAD/2+26*sc), fy = P[1] + ny*(ROAD/2+26*sc);
+  if(fx<20*sc || fx>GW-40*sc || fy<40*sc || fy>GH-40*sc){ sgn=-1; fx = P[0] - nx*(ROAD/2+26*sc); fy = P[1] - ny*(ROAD/2+26*sc); }
+  g.save(); g.translate(fx,fy); g.scale(sc,sc); g.translate(-fx,-fy);
+  g.strokeStyle='#5d4037'; g.lineWidth=3; g.beginPath(); g.moveTo(fx,fy+16); g.lineTo(fx,fy-28); g.stroke();
+  if(kind==='finish'){ for(let r=0;r<3;r++) for(let i=0;i<4;i++){ g.fillStyle=(i+r)%2?'#fff':'#111'; g.fillRect(fx+i*6,fy-28+r*6,6,6); } }
+  else { g.fillStyle='#43a047'; g.beginPath(); g.moveTo(fx,fy-28); g.lineTo(fx+24,fy-21); g.lineTo(fx,fy-14); g.fill(); }
+  g.font='900 15px Rubik, sans-serif'; g.textAlign='center'; g.lineWidth=4; g.strokeStyle='#1f1640'; g.fillStyle='#fff';
+  const label = kind==='finish'?'סיום':'זינוק';
+  g.strokeText(label, fx+8, fy+32); g.fillText(label, fx+8, fy+32);
+  g.restore();
+}
+function drawCheese(g,x,y,s){
+  g.save(); g.translate(x,y); g.rotate(-0.3);
+  g.fillStyle='rgba(0,0,0,.15)'; g.beginPath(); g.ellipse(2,s*0.45,s*0.75,s*0.2,0,0,7); g.fill();
+  g.fillStyle='#ffca28'; g.strokeStyle='#e0a100'; g.lineWidth=2;
+  g.beginPath(); g.moveTo(-s*0.7,s*0.35); g.lineTo(s*0.7,s*0.35); g.lineTo(s*0.7,-s*0.1); g.lineTo(-s*0.7,s*0.05); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle='#ffe082'; g.beginPath(); g.moveTo(-s*0.7,s*0.05); g.lineTo(s*0.7,-s*0.1); g.lineTo(s*0.55,-s*0.35); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle='#e0a100'; [[-.3,.2,.1],[.25,.15,.08],[0,.27,.05]].forEach(([a,b,r])=>{ g.beginPath(); g.arc(a*s,b*s,r*s,0,7); g.fill(); });
+  g.restore();
+}
+function drawTree(g,x,y,s){
+  g.fillStyle='rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(x+3,y+s*0.8,s*0.8,s*0.25,0,0,7); g.fill();
+  g.fillStyle='#795548'; g.fillRect(x-s*0.12,y,s*0.24,s*0.75);
+  [['#2e7d32',0,0,1],['#43a047',-0.3,-0.3,0.7],['#66bb6a',0.25,-0.45,0.5]].forEach(([c,a,b,r])=>{ g.fillStyle=c; g.beginPath(); g.arc(x+a*s,y+b*s,s*r,0,7); g.fill(); });
+}
+
+/* =========================================================
+   Main loop
+   ========================================================= */
+let last=performance.now();
+function frame(t){
+  const dt=Math.min(0.05,(t-last)/1000); last=t;
+  if($('game').classList.contains('on')) { update(dt,t); render(t); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+function update(dt,t){
+  if(S.phase==='race'){
+    if(!S.frozen){ S.prog[me] = Math.min(1, S.prog[me] + S.vel*dt); }
+    S.vel *= Math.exp(-TUNE.drag*dt);
+    if(S.prog[me]>=1 && !S.finSent){ S.finSent=true; if(role==='host') hostFinish(me); else send({t:'fin'}); }
+    if(t - S.lastSend > 66){ S.lastSend=t; send({t:'pos', p:S.prog[me]}); }
+    if(botMode) botStep(dt,t);
+    if(role==='host') hostTick(t);
+  }
+  // smooth opponent
+  const o=1-me; S.prog[o] += (S.target[o]-S.prog[o]) * Math.min(1, dt*10);
+  if(S.phase!=='race' && S.phase!=='done'){ S.prog[o]=S.target[o]; }
+  for(const id of ['tapL','tapR']){ const el=$(id); el.classList.toggle('off', S.frozen || S.phase!=='race'); el.classList.toggle('gone', S.phase==='done' || S.phase==='mark' || AR.marking); }
+  $('remark').classList.toggle('on', AR.on && role==='host' && !!AR.stream && !AR.marking && S.phase!=='done' && S.phase!=='mark');
+}
+function hostTick(t){
+  const close = Math.abs(S.prog[0] - (botMode? S.target[1] : S.target[1])) < TUNE.close;
+  const allowed = S.winner===null && (t - S.goAt) > 3000 && t > S.nextAvail;
+  if(S.hostAvail){
+    if(!allowed || !close || t - S.hostAvailSince > TUNE.virusShow){
+      S.hostAvail=false; S.nextAvail = t + TUNE.virusGap; setVirusAvail(false); send({t:'avail', v:false});
+    }
+  } else if(allowed && close){
+    S.hostAvail=true; S.hostAvailSince=t; setVirusAvail(true); send({t:'avail', v:true});
+    if(botMode && Math.random()<0.55) S.bot.claimAt = t + 450 + Math.random()*900; else if(botMode) S.bot.claimAt=0;
+  }
+}
+function botStep(dt,t){
+  const b=S.bot;
+  if(t < b.frozenUntil){ b.vel=0; }
+  else {
+    if(t >= b.nextTap){ b.vel=Math.min(TUNE.vmax, b.vel+TUNE.boost); b.nextTap = t + 1000/(b.rate*(0.8+Math.random()*0.4)); }
+    S.target[1] = Math.min(1, S.target[1] + b.vel*dt);
+  }
+  b.vel *= Math.exp(-TUNE.drag*dt);
+  if(b.claimAt && t>=b.claimAt){ b.claimAt=0; if(S.hostAvail) hostClaim(1); }
+  if(S.target[1]>=1) hostFinish(1);
+}
+
+/* ================= AR ================= */
+const AR = { on:false, quad:null, marking:false, pts:[], stream:null, H:null, key:'' };
+const TW=1200, TH=780; let arTex=null, arTexDirty=true, arWarp=null;
+function buildArGeom(){
+  GW=TW; GH=TH; ROAD=140; const m=ROAD/2+40;
+  const minY=270, maxY=1220;
+  // the sketch as drawn: start on the left, finish on the right
+  center = SKETCH.map(([x,y]) => [ m + x/2000*(TW-2*m), m*0.8 + (y-minY)/(maxY-minY)*(TH-1.6*m) ]);
+  lanes = [ offsetPath(center, ROAD*0.25), offsetPath(center, -ROAD*0.25) ];
+  lanes.forEach(l=>l.len=measure(l));
+  carLen = ROAD*0.62;
+  const c=document.createElement('canvas'); c.width=TW; c.height=TH; const g=c.getContext('2d');
+  g.fillStyle='rgba(20,12,50,.28)'; rr(g,8,8,TW-16,TH-16,40); g.fill();
+  g.strokeStyle='rgba(255,255,255,.7)'; g.lineWidth=6; g.setLineDash([24,18]); rr(g,8,8,TW-16,TH-16,40); g.stroke(); g.setLineDash([]);
+  drawRoad(g);
+  arTex=c; arTexDirty=true;
+}
+function videoMap(){
+  const v=$('cam'), vw=v.videoWidth||VW, vh=v.videoHeight||VH, s=Math.max(VW/vw, VH/vh);
+  return {vw, vh, s, ox:(VW-vw*s)/2, oy:(VH-vh*s)/2};
+}
+const toScreen = (q,M) => [M.ox + q[0]*M.vw*M.s, M.oy + q[1]*M.vh*M.s];
+const fromScreen = (x,y,M) => [(x-M.ox)/(M.s*M.vw), (y-M.oy)/(M.s*M.vh)];
+function solveH(src, dst){ // 3x3 homography mapping 4 src points to 4 dst points
+  const A=[], b=[];
+  for(let i=0;i<4;i++){ const [x,y]=src[i], [u,v]=dst[i];
+    A.push([x,y,1,0,0,0,-u*x,-u*y]); b.push(u); A.push([0,0,0,x,y,1,-v*x,-v*y]); b.push(v); }
+  for(let c=0;c<8;c++){ let piv=c; for(let r=c+1;r<8;r++) if(Math.abs(A[r][c])>Math.abs(A[piv][c])) piv=r;
+    [A[c],A[piv]]=[A[piv],A[c]]; [b[c],b[piv]]=[b[piv],b[c]];
+    for(let r=0;r<8;r++){ if(r===c) continue; const f=A[r][c]/A[c][c]; for(let k=c;k<8;k++) A[r][k]-=f*A[c][k]; b[r]-=f*b[c]; } }
+  const h=b.map((v,i)=>v/A[i][i]); h.push(1); return h;
+}
+const applyH = (h,x,y) => { const w=h[6]*x+h[7]*y+h[8]; return [(h[0]*x+h[1]*y+h[2])/w, (h[3]*x+h[4]*y+h[5])/w]; };
+function orderQuad(pts){ // -> top-left, top-right, bottom-right, bottom-left
+  const cx=pts.reduce((a,p)=>a+p[0],0)/4, cy=pts.reduce((a,p)=>a+p[1],0)/4;
+  const o=pts.slice().sort((a,b)=>Math.atan2(a[1]-cy,a[0]-cx)-Math.atan2(b[1]-cy,b[0]-cx));
+  let k=0, best=1e9; o.forEach((p,i)=>{ if(p[0]+p[1]<best){best=p[0]+p[1];k=i;} });
+  return [0,1,2,3].map(i=>o[(k+i)%4]);
+}
+function updateWarp(){
+  if(!AR.quad || !arTex) return;
+  const M=videoMap(); const dst=AR.quad.map(q=>toScreen(q,M));
+  const key=dst.flat().map(v=>v.toFixed(1)).join(',')+'|'+VW+'x'+VH+'|'+DPR;
+  if(key===AR.key && !arTexDirty) return;
+  AR.key=key; arTexDirty=false;
+  AR.H = solveH([[0,0],[TW,0],[TW,TH],[0,TH]], dst);
+  // pre-render the warped track once (triangle mesh = perspective)
+  const c = arWarp || document.createElement('canvas'); c.width=cv.width; c.height=cv.height; arWarp=c;
+  const g=c.getContext('2d'); g.setTransform(1,0,0,1,0,0); g.clearRect(0,0,c.width,c.height); g.setTransform(DPR,0,0,DPR,0,0);
+  const N=16;
+  for(let j=0;j<N;j++) for(let i=0;i<N;i++){
+    const u0=i/N*TW, u1=(i+1)/N*TW, v0=j/N*TH, v1=(j+1)/N*TH;
+    const s00=[u0,v0], s10=[u1,v0], s11=[u1,v1], s01=[u0,v1];
+    const d=[s00,s10,s11,s01].map(p=>applyH(AR.H,p[0],p[1]));
+    tri(g, s00,s10,s11, d[0],d[1],d[2]); tri(g, s00,s11,s01, d[0],d[2],d[3]);
+  }
+}
+function tri(g, s0,s1,s2, d0,d1,d2){
+  // expand the clip triangle slightly to hide hairline seams
+  const cx=(d0[0]+d1[0]+d2[0])/3, cy=(d0[1]+d1[1]+d2[1])/3, ex=p=>[p[0]+(p[0]-cx)*0.03, p[1]+(p[1]-cy)*0.03];
+  const e0=ex(d0), e1=ex(d1), e2=ex(d2);
+  g.save(); g.beginPath(); g.moveTo(e0[0],e0[1]); g.lineTo(e1[0],e1[1]); g.lineTo(e2[0],e2[1]); g.closePath(); g.clip();
+  const sx1=s1[0]-s0[0], sy1=s1[1]-s0[1], sx2=s2[0]-s0[0], sy2=s2[1]-s0[1], det=sx1*sy2-sx2*sy1;
+  if(Math.abs(det)<1e-9){ g.restore(); return; }
+  const dx1=d1[0]-d0[0], dy1=d1[1]-d0[1], dx2=d2[0]-d0[0], dy2=d2[1]-d0[1];
+  // M = D * inverse(S)
+  const i00=sy2/det, i01=-sx2/det, i10=-sy1/det, i11=sx1/det;
+  const a=dx1*i00+dx2*i10, c=dx1*i01+dx2*i11, b=dy1*i00+dy2*i10, d=dy1*i01+dy2*i11;
+  const e=d0[0]-a*s0[0]-c*s0[1], f=d0[1]-b*s0[0]-d*s0[1];
+  g.transform(a,b,c,d,e,f);
+  g.drawImage(arTex,0,0);
+  g.restore();
+}
+function renderAR(t){
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
+  const M=videoMap();
+  if(AR.quad && !AR.marking){
+    updateWarp();
+    if(arWarp) ctx.drawImage(arWarp,0,0);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    if(S.phase!=='mark') for(const who of [1-me, me]){
+      const p=poseAt(who, S.prog[who]);
+      const fx=Math.sin(p.h), fy=-Math.cos(p.h), h=carLen*0.5;
+      const P=applyH(AR.H,p.x,p.y), F=applyH(AR.H,p.x+fx*h,p.y+fy*h), Sd=applyH(AR.H,p.x-fy*h,p.y+fx*h);
+      const L=Math.max(26,(Math.hypot(F[0]-P[0],F[1]-P[1]) + Math.hypot(Sd[0]-P[0],Sd[1]-P[1]))*1.7);
+      const head=Math.atan2(F[0]-P[0], -(F[1]-P[1]));
+      const wob = S.phase==='race' && !(who===me && S.frozen) ? Math.sin(t/60+who)*0.05 : 0;
+      drawCar(ctx, P[0], P[1], head+wob, L, COLORS[who], who===me?myImg:oppImg, String(who+1), who===me?'rgba(255,255,255,.95)':null);
+      if(who===me){ ctx.font='900 13px Rubik, sans-serif'; ctx.textAlign='center'; ctx.lineWidth=4; ctx.strokeStyle='#1f1640'; ctx.fillStyle='#fff';
+        ctx.strokeText('אני', P[0], P[1]+L*0.75); ctx.fillText('אני', P[0], P[1]+L*0.75); }
+      if(who===me && S.frozen){ ctx.font='24px sans-serif'; ctx.textAlign='center'; ctx.fillText('🦠', P[0]+L*0.4, P[1]-L*0.4); }
+    }
+  }
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if(AR.marking){
+    const pts=AR.pts.map(q=>toScreen(q,M));
+    ctx.lineWidth=3; ctx.strokeStyle='#ffd54f'; ctx.fillStyle='rgba(255,213,79,.18)';
+    if(pts.length>1){ ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); if(pts.length===4){ ctx.closePath(); ctx.fill(); } ctx.stroke(); }
+    pts.forEach((p,i)=>{ ctx.fillStyle='#e5306a'; ctx.beginPath(); ctx.arc(p[0],p[1],13,0,7); ctx.fill(); ctx.strokeStyle='#fff'; ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='900 14px Rubik'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(i+1),p[0],p[1]+1); });
+  }
+  drawHud();
+}
+function stopCam(){ if(AR.stream){ AR.stream.getTracks().forEach(t=>t.stop()); AR.stream=null; } const v=$('cam'); v.srcObject=null; }
+
+function hostSetup(){ if(!AR.stream) AR.on=false; show('arsetup'); $('arErr').textContent=''; }
+$('arFlatBtn').onclick = () => { stopCam(); AR.on=false; AR.quad=null; send({t:'ar', q:null}); startMatch(); };
+$('arCamBtn').onclick = async () => {
+  $('arErr').textContent='';
+  try{
+    if(!AR.stream) AR.stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720}}, audio:false});
+  }catch(e){ $('arErr').textContent='לא הצלחנו לפתוח את המצלמה. צריך לאשר גישה למצלמה, או לבחור מסלול מצויר.'; return; }
+  const v=$('cam'); v.srcObject=AR.stream; v.play().catch(()=>{});
+  AR.on=true; S.phase='mark'; show('game'); resize(); startMarking();
+};
+function startMarking(){
+  AR.marking=true; AR.pts=[]; $('markOv').classList.add('on'); $('markOk').style.display='none'; markMsg();
+}
+function markMsg(){
+  const n=AR.pts.length;
+  $('markMsg').textContent = n<4 ? 'לחצו על פינה '+(n+1)+' מתוך 4 של מכסה הלפטופ' : 'יופי! המסלול יופיע על המכסה. אם הפינות נכונות, יוצאים לדרך.';
+}
+$('cv').addEventListener('pointerdown', e=>{
+  if(!AR.marking || AR.pts.length>=4) return;
+  const M=videoMap(); AR.pts.push(fromScreen(e.clientX, e.clientY, M)); clickSound(); markMsg();
+  if(AR.pts.length===4) $('markOk').style.display='';
+});
+$('markReset').onclick = () => { AR.pts=[]; $('markOk').style.display='none'; markMsg(); };
+$('markOk').onclick = () => {
+  AR.quad = orderQuad(AR.pts); AR.marking=false; arTexDirty=true; $('markOv').classList.remove('on');
+  send({t:'ar', q:AR.quad});
+  if(S.phase==='mark'){
+    if(!botMode && conn && peer && AR.stream && !AR.called){ try{ peer.call(conn.peer, AR.stream); AR.called=true; }catch(e){} }
+    startMatch();
+  }
+};
+$('remark').onclick = () => startMarking();
+
+function render(t){
+  if(AR.on){ renderAR(t); return; }
+  // camera follows my car
+  const mine = poseAt(me, S.prog[me]);
+  const want = Math.max(0, Math.min(WH-VH, mine.y - VH*0.58));
+  camY += (want - camY) * 0.12;
+  ctx.setTransform(1,0,0,1,0,0);
+  if(staticLayer) ctx.drawImage(staticLayer, 0, -Math.round(camY*DPR)); else { ctx.fillStyle='#5cbf5a'; ctx.fillRect(0,0,cv.width,cv.height); }
+  ctx.setTransform(DPR,0,0,DPR,0,-Math.round(camY*DPR));
+  // cars: draw opponent first so mine is on top
+  for(const who of [1-me, me]){
+    const pose = poseAt(who, S.prog[who]);
+    const img = who===me ? myImg : oppImg;
+    const wob = S.phase==='race' && !(who===me && S.frozen) ? Math.sin(t/60+who)*0.04 : 0;
+    drawCar(ctx, pose.x, pose.y, pose.h+wob, carLen*1.0, COLORS[who], img, String(who+1), who===me ? 'rgba(255,255,255,.9)' : null);
+    if(who===me){ // "me" marker
+      ctx.font='900 13px Rubik, sans-serif'; ctx.textAlign='center'; ctx.lineWidth=4; ctx.strokeStyle='#1f1640'; ctx.fillStyle='#fff';
+      ctx.strokeText('אני', pose.x, pose.y - carLen*0.75); ctx.fillText('אני', pose.x, pose.y - carLen*0.75);
+    }
+    if(who===me && S.frozen){ ctx.font='24px sans-serif'; ctx.textAlign='center'; ctx.fillText('🦠', pose.x+carLen*0.4, pose.y-carLen*0.4); }
+  }
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  drawHud();
+}
+function drawHud(){
+  const top = 10, h = 52;
+  ctx.fillStyle='rgba(31,22,64,.82)'; rr(ctx,10,top,VW-20,h,16); ctx.fill();
+  ctx.font='900 16px Rubik, sans-serif'; ctx.fillStyle='#fff'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  ctx.fillText('מירוץ עכברים', VW-24, top+h/2);
+  // progress bars
+  const bx=24, bw=VW-24-140, rows=[me,1-me];
+  rows.forEach((who,i)=>{
+    const y = top+14+i*22;
+    ctx.fillStyle='rgba(255,255,255,.18)'; rr(ctx,bx,y-6,bw,12,6); ctx.fill();
+    ctx.fillStyle=COLORS[who]; rr(ctx,bx,y-6,Math.max(12,bw*S.prog[who]),12,6); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='800 11px Rubik, sans-serif'; ctx.textAlign='left';
+    ctx.fillText(who===me?'אני':'יריב', bx+4, y+0.5);
+  });
+  if(S.phase==='race' && S.winner===null){
+    const sec = Math.floor((performance.now()-S.goAt)/1000);
+    ctx.fillStyle='#ffd54f'; ctx.font='800 13px Rubik, sans-serif'; ctx.textAlign='right';
+    ctx.fillText(Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'), VW-24, top+h-9);
+  }
+}
+
+/* =========================================================
+   Confetti
+   ========================================================= */
+const cf=$('confetti'), cfx=cf.getContext('2d'); let parts=[], cfOn=false;
+function confetti(color){
+  cf.width=innerWidth*DPR; cf.height=innerHeight*DPR; cfx.setTransform(DPR,0,0,DPR,0,0);
+  const pal = color===COLORS[0] ? ['#e53935','#ff5252','#b71c1c','#ff8a80','#ffffff'] : ['#fdd835','#ffeb3b','#f9a825','#fff59d','#ffffff'];
+  parts=[]; for(let i=0;i<260;i++) parts.push({x:innerWidth/2+(Math.random()-.5)*80, y:innerHeight*0.55, vx:(Math.random()-.5)*14, vy:-8-Math.random()*13,
+    r:Math.random()*Math.PI, vr:(Math.random()-.5)*0.4, w:6+Math.random()*8, h:4+Math.random()*6, c:pal[i%pal.length]});
+  if(!cfOn){ cfOn=true; requestAnimationFrame(cfLoop); }
+  setTimeout(()=>{ if(cfOn) for(let i=0;i<120;i++) parts.push({x:Math.random()*innerWidth,y:-20,vx:(Math.random()-.5)*3,vy:Math.random()*3,r:0,vr:(Math.random()-.5)*.3,w:6+Math.random()*8,h:4+Math.random()*6,c:pal[i%pal.length]}); },900);
+}
+function cfLoop(){
+  if(!cfOn){ cfx.clearRect(0,0,cf.width,cf.height); return; }
+  cfx.clearRect(0,0,innerWidth,innerHeight);
+  parts.forEach(p=>{ p.vy+=0.35; p.vx*=0.99; p.x+=p.vx; p.y+=p.vy; p.r+=p.vr;
+    cfx.save(); cfx.translate(p.x,p.y); cfx.rotate(p.r); cfx.fillStyle=p.c; cfx.fillRect(-p.w/2,-p.h/2*Math.abs(Math.cos(p.r*2)),p.w,p.h*Math.abs(Math.cos(p.r*2))+1); cfx.restore(); });
+  parts = parts.filter(p=>p.y<innerHeight+40);
+  requestAnimationFrame(cfLoop);
+}
+function stopConfetti(){ cfOn=false; parts=[]; cfx.clearRect(0,0,cf.width,cf.height); }
+
+/* test hook */
+window.__mr = { S, TUNE, setImg:c=>{myImg=c;} };
+if(Q.get('room')) { /* guests arriving by link: start at the photo step, room code is pre-filled later */ }
+</script>
+</body>
+</html>
